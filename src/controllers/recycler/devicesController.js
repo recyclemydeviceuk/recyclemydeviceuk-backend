@@ -20,8 +20,7 @@ const getAllDevices = async (req, res) => {
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { brand: { $regex: search, $options: 'i' } },
-        { model: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
       ];
     }
 

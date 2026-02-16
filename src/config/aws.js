@@ -49,7 +49,7 @@ const uploadToS3 = async (file, folder = 'uploads') => {
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
-    ACL: 'public-read',
+    // ACL removed - bucket has ACLs disabled, uses bucket policy for public access
   };
 
   try {

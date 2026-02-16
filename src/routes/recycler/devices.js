@@ -9,10 +9,10 @@ const {
   searchDevices,
   getDeviceStats,
 } = require('../../controllers/recycler/devicesController');
-const { protect, recyclerOnly } = require('../../middlewares/authMiddleware');
+const { validateRecyclerSession, requireRecycler } = require('../../middlewares/sessionMiddleware');
 
-// All routes require authentication and recycler role
-router.use(protect, recyclerOnly);
+// All routes require session authentication and recycler role
+router.use(validateRecyclerSession, requireRecycler);
 
 // Device routes
 router.get('/', getAllDevices);

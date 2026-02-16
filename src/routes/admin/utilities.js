@@ -6,6 +6,27 @@ const {
   createBrand,
   updateBrand,
   deleteBrand,
+  uploadImage,
+  getStorageOptions,
+  createStorageOption,
+  updateStorageOption,
+  deleteStorageOption,
+  getAllDeviceCategories,
+  createDeviceCategory,
+  updateDeviceCategory,
+  deleteDeviceCategory,
+  getAllConditions,
+  createCondition,
+  updateCondition,
+  deleteCondition,
+  getAllBlogCategories,
+  createBlogCategory,
+  updateBlogCategory,
+  deleteBlogCategory,
+  getAllFAQCategories,
+  createFAQCategory,
+  updateFAQCategory,
+  deleteFAQCategory,
   getDeviceConditions,
   getDeviceCategories,
   getOrderStatuses,
@@ -13,7 +34,6 @@ const {
   getRecyclerStatuses,
   getSystemSettings,
   updateSystemSettings,
-  getStorageOptions,
   getPriceRanges,
   createOrderStatus,
   updateOrderStatus,
@@ -23,16 +43,48 @@ const {
   deletePaymentStatus,
   cleanupOldData,
 } = require('../../controllers/admin/utilitiesController');
-const { protect, adminOnly } = require('../../middlewares/authMiddleware');
+const { uploadSingle } = require('../../middlewares/upload');
 
-// All routes require authentication and admin role
-router.use(protect, adminOnly);
+// Authentication is already applied in main router (validateAdminSession, requireAdmin)
+
+// Image upload route
+router.post('/upload-image', uploadSingle('image'), uploadImage);
 
 // Brand management routes
 router.get('/brands', getAllBrands);
-router.post('/brands', createBrand);
-router.put('/brands/:id', updateBrand);
+router.post('/brands', uploadSingle('logo'), createBrand);
+router.put('/brands/:id', uploadSingle('logo'), updateBrand);
 router.delete('/brands/:id', deleteBrand);
+
+// Storage options CRUD routes
+router.get('/storage-options', getStorageOptions);
+router.post('/storage-options', createStorageOption);
+router.put('/storage-options/:id', updateStorageOption);
+router.delete('/storage-options/:id', deleteStorageOption);
+
+// Device categories CRUD routes
+router.get('/device-categories', getAllDeviceCategories);
+router.post('/device-categories', createDeviceCategory);
+router.put('/device-categories/:id', updateDeviceCategory);
+router.delete('/device-categories/:id', deleteDeviceCategory);
+
+// Conditions CRUD routes
+router.get('/conditions', getAllConditions);
+router.post('/conditions', createCondition);
+router.put('/conditions/:id', updateCondition);
+router.delete('/conditions/:id', deleteCondition);
+
+// Blog categories CRUD routes
+router.get('/blog-categories', getAllBlogCategories);
+router.post('/blog-categories', createBlogCategory);
+router.put('/blog-categories/:id', updateBlogCategory);
+router.delete('/blog-categories/:id', deleteBlogCategory);
+
+// FAQ categories CRUD routes
+router.get('/faq-categories', getAllFAQCategories);
+router.post('/faq-categories', createFAQCategory);
+router.put('/faq-categories/:id', updateFAQCategory);
+router.delete('/faq-categories/:id', deleteFAQCategory);
 
 // Constants routes
 router.get('/constants/device-conditions', getDeviceConditions);

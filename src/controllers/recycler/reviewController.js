@@ -7,29 +7,49 @@ const { HTTP_STATUS, PAGINATION } = require('../../config/constants');
 const getAllReviews = async (req, res) => {
   try {
     const Review = require('../../models/Review');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
+    console.log('Getting reviews for recycler:', recyclerId);
+    console.log('Recycler ID type:', typeof recyclerId, recyclerId.toString());
+    
+    // First, let's see ALL reviews in the database for debugging
+    const allReviews = await Review.find({ status: 'approved' });
+    console.log(`Total approved reviews in DB: ${allReviews.length}`);
+    if (allReviews.length > 0) {
+      console.log('Sample review recyclerIds:', allReviews.map(r => ({ 
+        id: r.recyclerId?.toString(), 
+        status: r.status,
+        customer: r.customerName 
+      })));
+    }
+    
     const page = parseInt(req.query.page) || PAGINATION.DEFAULT_PAGE;
     const limit = parseInt(req.query.limit) || PAGINATION.DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
 
     const { rating, status } = req.query;
 
-    // Build filter
-    const filter = { recyclerId };
+    // Build filter - only show approved reviews
+    const filter = { 
+      recyclerId: recyclerId,
+      status: 'approved' // Only return approved reviews
+    };
 
     if (rating) filter.rating = parseInt(rating);
-    if (status) filter.status = status;
+
+    console.log('Review filter:', JSON.stringify(filter));
 
     const [reviews, total] = await Promise.all([
       Review.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('userId', 'name email')
-        .populate('orderId', 'orderNumber'),
+        .populate('orderId', 'orderNumber customerName customerEmail'),
       Review.countDocuments(filter),
     ]);
+
+    console.log(`Found ${reviews.length} reviews matching recyclerId, total: ${total}`);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -58,11 +78,10 @@ const getReviewById = async (req, res) => {
   try {
     const Review = require('../../models/Review');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
 
     const review = await Review.findOne({ _id: req.params.id, recyclerId })
-      .populate('userId', 'name email')
-      .populate('orderId', 'orderNumber deviceId');
+      .populate('orderId', 'orderNumber customerName customerEmail deviceId');
 
     if (!review) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -93,13 +112,15 @@ const getReviewStats = async (req, res) => {
     const Review = require('../../models/Review');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
+
+    console.log('Getting stats for recycler:', recyclerId);
 
     // Get rating distribution
     const ratingDistribution = await Review.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: recyclerId,
           status: 'approved',
         },
       },
@@ -118,7 +139,7 @@ const getReviewStats = async (req, res) => {
     const avgRatingData = await Review.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: recyclerId,
           status: 'approved',
         },
       },
@@ -144,10 +165,12 @@ const getReviewStats = async (req, res) => {
       createdAt: { $gte: thirtyDaysAgo },
     });
 
+    console.log('Stats result:', { averageRating, totalReviews, recentReviews });
+
     res.status(HTTP_STATUS.OK).json({
       success: true,
       data: {
-        averageRating: averageRating.toFixed(1),
+        averageRating: parseFloat(averageRating.toFixed(1)),
         totalReviews,
         recentReviews,
         ratingDistribution,
@@ -170,7 +193,7 @@ const getReviewsByRating = async (req, res) => {
   try {
     const Review = require('../../models/Review');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const { rating } = req.params;
     const limit = parseInt(req.query.limit) || 20;
 
@@ -181,7 +204,7 @@ const getReviewsByRating = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId', 'name')
+      .populate('orderId', 'customerName')
       .select('rating comment createdAt');
 
     res.status(HTTP_STATUS.OK).json({
@@ -205,7 +228,7 @@ const getRecentReviews = async (req, res) => {
   try {
     const Review = require('../../models/Review');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const limit = parseInt(req.query.limit) || 5;
 
     const reviews = await Review.find({ 
@@ -214,7 +237,7 @@ const getRecentReviews = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId', 'name')
+      .populate('orderId', 'customerName')
       .select('rating comment createdAt');
 
     res.status(HTTP_STATUS.OK).json({
@@ -238,7 +261,7 @@ const respondToReview = async (req, res) => {
   try {
     const Review = require('../../models/Review');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const { response } = req.body;
 
     if (!response) {
@@ -285,7 +308,7 @@ const getRatingBreakdown = async (req, res) => {
     const Review = require('../../models/Review');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
 
     const breakdown = await Review.aggregate([
       {

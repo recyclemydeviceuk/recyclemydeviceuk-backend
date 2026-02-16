@@ -20,6 +20,14 @@ const orderSchema = new mongoose.Schema({
     ref: 'Recycler',
     required: true,
   },
+  deviceName: {
+    type: String,
+    trim: true,
+  },
+  recyclerName: {
+    type: String,
+    trim: true,
+  },
   // Guest customer information (inline)
   customerName: {
     type: String,
@@ -49,11 +57,12 @@ const orderSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  // Device details at time of order
+  // Device details at time of order (dynamic - uses Condition collection)
   deviceCondition: {
     type: String,
-    enum: ['excellent', 'good', 'fair', 'poor'],
     required: true,
+    lowercase: true,
+    trim: true,
   },
   storage: {
     type: String,
@@ -67,20 +76,24 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
-  // Order status
+  // Order status (dynamic - no enum validation, uses OrderStatus collection)
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'cancelled'],
+    required: true,
     default: 'pending',
+    lowercase: true,
+    trim: true,
   },
   statusNotes: {
     type: String,
   },
-  // Payment
+  // Payment (dynamic - no enum validation, uses PaymentStatus collection)
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'failed', 'refunded'],
+    required: true,
     default: 'pending',
+    lowercase: true,
+    trim: true,
   },
   transactionId: {
     type: String,

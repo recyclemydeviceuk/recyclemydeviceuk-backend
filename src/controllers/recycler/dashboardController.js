@@ -10,7 +10,7 @@ const getDashboardStats = async (req, res) => {
     const Review = require('../../models/Review');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
 
     // Get total orders
     const totalOrders = await Order.countDocuments({ recyclerId });
@@ -27,7 +27,7 @@ const getDashboardStats = async (req, res) => {
     const revenueData = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'completed',
           paymentStatus: 'paid',
         },
@@ -46,7 +46,7 @@ const getDashboardStats = async (req, res) => {
     const pendingRevenueData = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: { $in: ['pending', 'processing'] },
         },
       },
@@ -64,7 +64,7 @@ const getDashboardStats = async (req, res) => {
     const ratingData = await Review.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'approved',
         },
       },
@@ -127,15 +127,14 @@ const getRecentOrders = async (req, res) => {
   try {
     const Order = require('../../models/Order');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const limit = parseInt(req.query.limit) || 5;
 
     const orders = await Order.find({ recyclerId })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId', 'name email')
       .populate('deviceId', 'name brand model')
-      .select('orderNumber status amount deviceCondition createdAt');
+      .select('orderNumber customerName customerEmail status amount deviceCondition createdAt');
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -159,7 +158,7 @@ const getRevenueChart = async (req, res) => {
     const Order = require('../../models/Order');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const { period = 'week' } = req.query; // week, month, year
 
     let groupBy;
@@ -201,7 +200,7 @@ const getRevenueChart = async (req, res) => {
     const revenueData = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'completed',
           paymentStatus: 'paid',
           createdAt: { $gte: startDate },
@@ -241,13 +240,13 @@ const getTopDevices = async (req, res) => {
     const Order = require('../../models/Order');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const limit = parseInt(req.query.limit) || 5;
 
     const topDevices = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'completed',
         },
       },
@@ -301,7 +300,7 @@ const getPerformanceMetrics = async (req, res) => {
     const Order = require('../../models/Order');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
 
     // Calculate completion rate
     const totalOrders = await Order.countDocuments({ recyclerId });
@@ -312,7 +311,7 @@ const getPerformanceMetrics = async (req, res) => {
     const avgOrderData = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'completed',
         },
       },
@@ -330,7 +329,7 @@ const getPerformanceMetrics = async (req, res) => {
     const processingTimeData = await Order.aggregate([
       {
         $match: {
-          recyclerId: mongoose.Types.ObjectId(recyclerId),
+          recyclerId: new mongoose.Types.ObjectId(recyclerId),
           status: 'completed',
           completedAt: { $exists: true },
         },

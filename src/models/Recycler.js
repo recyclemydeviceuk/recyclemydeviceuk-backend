@@ -37,6 +37,11 @@ const recyclerSchema = new mongoose.Schema({
   usps: [{
     type: String,
   }],
+  isActive: {
+    type: Boolean,
+    default: true,
+    index: true,
+  },
   businessDescription: {
     type: String,
   },

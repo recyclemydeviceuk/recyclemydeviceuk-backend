@@ -3,34 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const { UPLOAD_LIMITS, HTTP_STATUS } = require('../config/constants');
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Organize uploads by type
-    let uploadPath = 'uploads/';
-    
-    if (file.fieldname === 'profileImage') {
-      uploadPath += 'profiles/';
-    } else if (file.fieldname === 'deviceImages') {
-      uploadPath += 'devices/';
-    } else if (file.fieldname === 'documents') {
-      uploadPath += 'documents/';
-    } else if (file.fieldname === 'certificates') {
-      uploadPath += 'certificates/';
-    } else {
-      uploadPath += 'misc/';
-    }
-    
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const basename = path.basename(file.originalname, ext).replace(/\s+/g, '-');
-    cb(null, `${basename}-${uniqueSuffix}${ext}`);
-  },
-});
+// Configure memory storage for S3 uploads
+// Files are stored in memory as buffers instead of being written to disk
+const storage = multer.memoryStorage();
 
 // File filter function
 const fileFilter = (req, file, cb) => {

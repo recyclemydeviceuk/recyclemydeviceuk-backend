@@ -100,29 +100,33 @@ const submitReview = async (req, res) => {
 const getRecyclerReviews = async (req, res) => {
   try {
     const Review = require('../../models/Review');
+    const mongoose = require('mongoose');
 
     const { recyclerId } = req.params;
     const limit = parseInt(req.query.limit) || 10;
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * limit;
 
+    // Convert string to ObjectId for proper matching
+    const recyclerObjectId = new mongoose.Types.ObjectId(recyclerId);
+
     const [reviews, total] = await Promise.all([
       Review.find({ 
-        recyclerId, 
+        recyclerId: recyclerObjectId, 
         status: 'approved' 
       })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('customerName rating comment createdAt recyclerResponse'),
-      Review.countDocuments({ recyclerId, status: 'approved' }),
+        .select('customerName rating comment status createdAt recyclerResponse'),
+      Review.countDocuments({ recyclerId: recyclerObjectId, status: 'approved' }),
     ]);
 
     // Calculate average rating
     const ratingData = await Review.aggregate([
       {
         $match: {
-          recyclerId: require('mongoose').Types.ObjectId(recyclerId),
+          recyclerId: recyclerObjectId,
           status: 'approved',
         },
       },

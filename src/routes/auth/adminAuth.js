@@ -5,20 +5,22 @@ const {
   checkAdminEmail,
   sendAdminOTP,
   verifyAdminOTP,
+  logoutAdmin,
   changeAdminPassword,
   getAdminProfile,
   updateAdminProfile,
 } = require('../../controllers/auth/adminAuthController');
-const { protect, adminOnly } = require('../../middlewares/authMiddleware');
+const { validateAdminSession, requireAdmin } = require('../../middlewares/sessionMiddleware');
 
 // Public routes (no authentication required)
 router.post('/check-email', checkAdminEmail);
 router.post('/send-otp', sendAdminOTP);
 router.post('/verify-otp', verifyAdminOTP);
 
-// Protected routes (authentication required)
-router.put('/change-password', protect, adminOnly, changeAdminPassword);
-router.get('/profile', protect, adminOnly, getAdminProfile);
-router.put('/profile', protect, adminOnly, updateAdminProfile);
+// Protected routes (session authentication required)
+router.post('/logout', validateAdminSession, requireAdmin, logoutAdmin);
+router.put('/change-password', validateAdminSession, requireAdmin, changeAdminPassword);
+router.get('/profile', validateAdminSession, requireAdmin, getAdminProfile);
+router.put('/profile', validateAdminSession, requireAdmin, updateAdminProfile);
 
 module.exports = router;

@@ -19,8 +19,12 @@ const getDashboardStats = async (req, res) => {
 
     // Total counts
     const totalOrders = await Order.countDocuments();
-    const totalUsers = await User.countDocuments({ role: 'customer' });
-    const totalRecyclers = await Recycler.countDocuments({ status: 'approved' });
+    
+    // Count unique customers from Orders (customers are stored inline in orders, not in User model)
+    const uniqueCustomers = await Order.distinct('customerEmail');
+    const totalUsers = uniqueCustomers.length;
+    
+    const totalRecyclers = await Recycler.countDocuments();
     const totalDevices = await Device.countDocuments();
 
     // Orders this month
@@ -33,23 +37,23 @@ const getDashboardStats = async (req, res) => {
       createdAt: { $gte: lastMonth, $lt: thisMonth },
     });
 
-    // Revenue calculation
+    // Revenue calculation (using 'amount' field from Order model)
     const revenueResult = await Order.aggregate([
-      { $match: { status: 'completed', paymentStatus: 'completed' } },
-      { $group: { _id: null, total: { $sum: '$price' } } },
+      { $match: { status: 'completed', paymentStatus: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
-    const totalRevenue = revenueResult[0]?.total || 0;
+    const totalRevenue = Math.floor(revenueResult[0]?.total || 0);
 
     // Revenue this month
     const revenueThisMonthResult = await Order.aggregate([
       {
         $match: {
           status: 'completed',
-          paymentStatus: 'completed',
+          paymentStatus: 'paid',
           createdAt: { $gte: thisMonth },
         },
       },
-      { $group: { _id: null, total: { $sum: '$price' } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
     const revenueThisMonth = revenueThisMonthResult[0]?.total || 0;
 
@@ -58,23 +62,46 @@ const getDashboardStats = async (req, res) => {
       status: { $in: ['pending', 'confirmed'] },
     });
 
-    // Pending recyclers
+    // Pending recyclers - check all recyclers first for debugging
+    const allRecyclers = await Recycler.find({}, 'status companyName');
+    console.log('📊 Dashboard Stats Debug:');
+    console.log('Total Recyclers:', totalRecyclers);
+    console.log('All Recyclers with status:', allRecyclers.map(r => ({ name: r.companyName, status: r.status })));
+    
+    // Count pending recyclers
     const pendingRecyclers = await Recycler.countDocuments({
       status: 'pending',
     });
+    console.log('Pending Recyclers Count:', pendingRecyclers);
+    
+    // Also try counting with different status values in case the field has different values
+    const statusCounts = await Recycler.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    console.log('Recycler Status Breakdown:', statusCounts);
 
     // Recent orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('userId', 'name email')
       .populate('recyclerId', 'name')
-      .select('orderId phone.model status price createdAt');
+      .populate('deviceId', 'name')
+      .select('orderNumber customerName customerEmail status amount createdAt');
 
     // Order status breakdown
     const ordersByStatus = await Order.aggregate([
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
+
+    console.log('📤 Sending response with overview:', {
+      totalOrders,
+      totalUsers,
+      totalRecyclers,
+      totalDevices,
+      totalRevenue,
+      pendingOrders,
+      pendingRecyclers,
+    });
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -84,7 +111,7 @@ const getDashboardStats = async (req, res) => {
           totalUsers,
           totalRecyclers,
           totalDevices,
-          totalRevenue,
+          totalRevenue: Math.floor(totalRevenue),
           pendingOrders,
           pendingRecyclers,
         },
@@ -126,8 +153,8 @@ const getRecentActivity = async (req, res) => {
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId', 'name email')
-      .select('orderId status createdAt');
+      .populate('deviceId', 'name')
+      .select('orderNumber customerName customerEmail status createdAt');
 
     // Recent users
     const recentUsers = await User.find({ role: 'customer' })
@@ -191,14 +218,14 @@ const getRevenueAnalytics = async (req, res) => {
       {
         $match: {
           status: 'completed',
-          paymentStatus: 'completed',
+          paymentStatus: 'paid',
           createdAt: { $gte: dateRange },
         },
       },
       {
         $group: {
           _id: groupBy,
-          totalRevenue: { $sum: '$price' },
+          totalRevenue: { $sum: '$amount' },
           orderCount: { $sum: 1 },
         },
       },

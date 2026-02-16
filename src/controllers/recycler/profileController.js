@@ -9,7 +9,9 @@ const getProfile = async (req, res) => {
   try {
     const Recycler = require('../../models/Recycler');
 
-    const recycler = await Recycler.findById(req.user._id).select('-password');
+    // JWT token uses 'id' field, not '_id'
+    const recyclerId = req.user.id || req.user._id;
+    const recycler = await Recycler.findById(recyclerId).select('-password');
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -49,9 +51,12 @@ const updateProfile = async (req, res) => {
       postcode,
       bankDetails,
       logo,
+      usps,
+      isActive,
     } = req.body;
 
-    const recycler = await Recycler.findById(req.user._id);
+    const recyclerId = req.user.id || req.user._id;
+    const recycler = await Recycler.findById(recyclerId);
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -61,31 +66,25 @@ const updateProfile = async (req, res) => {
     }
 
     // Update allowed fields
-    if (name) recycler.name = name;
-    if (phone) recycler.phone = phone;
-    if (companyName) recycler.companyName = companyName;
-    if (website) recycler.website = website;
-    if (businessDescription) recycler.businessDescription = businessDescription;
-    if (address) recycler.address = address;
-    if (city) recycler.city = city;
-    if (postcode) recycler.postcode = postcode;
-    if (bankDetails) recycler.bankDetails = bankDetails;
-    if (logo) recycler.logo = logo;
+    if (name !== undefined) recycler.name = name;
+    if (phone !== undefined) recycler.phone = phone;
+    if (companyName !== undefined) recycler.companyName = companyName;
+    if (website !== undefined) recycler.website = website;
+    if (businessDescription !== undefined) recycler.businessDescription = businessDescription;
+    if (address !== undefined) recycler.address = address;
+    if (city !== undefined) recycler.city = city;
+    if (postcode !== undefined) recycler.postcode = postcode;
+    if (bankDetails !== undefined) recycler.bankDetails = bankDetails;
+    if (logo !== undefined) recycler.logo = logo;
+    if (usps !== undefined) recycler.usps = usps;
+    if (isActive !== undefined) recycler.isActive = isActive;
 
     await recycler.save();
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Profile updated successfully',
-      data: {
-        id: recycler._id,
-        name: recycler.name,
-        email: recycler.email,
-        phone: recycler.phone,
-        companyName: recycler.companyName,
-        website: recycler.website,
-        status: recycler.status,
-      },
+      data: recycler,
     });
   } catch (error) {
     console.error('Update Profile Error:', error);
@@ -119,7 +118,8 @@ const changePassword = async (req, res) => {
       });
     }
 
-    const recycler = await Recycler.findById(req.user._id);
+    const recyclerId = req.user.id || req.user._id;
+    const recycler = await Recycler.findById(recyclerId);
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -174,7 +174,8 @@ const updateBankDetails = async (req, res) => {
       });
     }
 
-    const recycler = await Recycler.findById(req.user._id);
+    const recyclerId = req.user.id || req.user._id;
+    const recycler = await Recycler.findById(recyclerId);
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -215,7 +216,7 @@ const getRecyclerStats = async (req, res) => {
     const Review = require('../../models/Review');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
 
     // Get order statistics
     const totalOrders = await Order.countDocuments({ recyclerId });
@@ -290,7 +291,7 @@ const getActivityLog = async (req, res) => {
   try {
     const Order = require('../../models/Order');
 
-    const recyclerId = req.user._id;
+    const recyclerId = req.user.id || req.user._id;
     const limit = parseInt(req.query.limit) || 20;
 
     // Get recent orders as activity
@@ -338,7 +339,8 @@ const updateBusinessHours = async (req, res) => {
       });
     }
 
-    const recycler = await Recycler.findById(req.user._id);
+    const recyclerId = req.user.id || req.user._id;
+    const recycler = await Recycler.findById(recyclerId);
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({

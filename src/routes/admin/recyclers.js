@@ -11,6 +11,7 @@ const {
   updateRecycler,
   deleteRecycler,
   getRecyclerStats,
+  toggleActiveStatus,
 } = require('../../controllers/admin/recyclerController');
 const { protect, adminOnly } = require('../../middlewares/authMiddleware');
 
@@ -24,8 +25,9 @@ router.get('/:id', getRecyclerById);
 router.put('/:id', updateRecycler);
 router.put('/:id/approve', approveRecycler);
 router.put('/:id/reject', rejectRecycler);
-router.put('/:id/suspend', suspendRecycler);
-router.put('/:id/activate', activateRecycler);
+router.patch('/:id/suspend', suspendRecycler);
+router.patch('/:id/activate', activateRecycler);
+router.patch('/:id/toggle-active', toggleActiveStatus);
 router.delete('/:id', deleteRecycler);
 
 module.exports = router;

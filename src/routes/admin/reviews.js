@@ -21,9 +21,9 @@ router.get('/', getAllReviews);
 router.get('/stats', getReviewStats);
 router.post('/bulk-delete', bulkDeleteReviews);
 router.get('/:id', getReviewById);
-router.put('/:id/approve', approveReview);
-router.put('/:id/reject', rejectReview);
-router.put('/:id/flag', flagReview);
+router.patch('/:id/approve', approveReview);
+router.patch('/:id/reject', rejectReview);
+router.patch('/:id/flag', flagReview);
 router.delete('/:id', deleteReview);
 
 module.exports = router;

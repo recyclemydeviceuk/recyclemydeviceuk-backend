@@ -343,10 +343,23 @@ const suspendRecycler = async (req, res) => {
         to: recycler.email,
         subject: 'Account Suspension Notice',
         htmlBody: `
-          <h1>Account Suspended</h1>
-          <p>Your recycler account has been temporarily suspended.</p>
-          <p><strong>Reason:</strong> ${reason}</p>
-          <p>Please contact support for more information.</p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #ef4444;">Account Suspended</h1>
+            <p>Dear ${recycler.name},</p>
+            <p>Your recycler account has been temporarily suspended and you cannot access the system.</p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <p>During suspension:</p>
+            <ul>
+              <li>You cannot log in to your account</li>
+              <li>Orders and business operations are paused</li>
+              <li>System access is disabled</li>
+            </ul>
+            <p>If you believe this is an error or have questions, please contact support at <a href="mailto:support@recyclemydevice.com">support@recyclemydevice.com</a></p>
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              Best regards,<br>
+              <strong>Recycle My Device Admin Team</strong>
+            </p>
+          </div>
         `,
       });
     } catch (emailError) {
@@ -374,18 +387,57 @@ const suspendRecycler = async (req, res) => {
 const activateRecycler = async (req, res) => {
   try {
     const Recycler = require('../../models/Recycler');
+    const { reason } = req.body;
 
-    const recycler = await Recycler.findByIdAndUpdate(
-      req.params.id,
-      { status: 'active', activatedAt: new Date() },
-      { new: true }
-    );
+    if (!reason) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Activation reason is required',
+      });
+    }
+
+    const recycler = await Recycler.findById(req.params.id);
 
     if (!recycler) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: 'Recycler not found',
       });
+    }
+
+    recycler.status = 'approved';
+    recycler.activatedAt = new Date();
+    recycler.activationReason = reason;
+
+    await recycler.save();
+
+    // Send activation email
+    try {
+      await sendEmail({
+        to: recycler.email,
+        subject: 'Account Activated - Welcome Back!',
+        htmlBody: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #1b981b;">Account Activated!</h1>
+            <p>Dear ${recycler.name},</p>
+            <p>Great news! Your recycler account has been activated and you can now access the system.</p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <p>You can now:</p>
+            <ul>
+              <li>Log in to your account</li>
+              <li>Manage orders</li>
+              <li>Access devices</li>
+              <li>Use all system features</li>
+            </ul>
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              Best regards,<br>
+              <strong>Recycle My Device Admin Team</strong>
+            </p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
     }
 
     res.status(HTTP_STATUS.OK).json({
@@ -519,6 +571,41 @@ const getRecyclerStats = async (req, res) => {
   }
 };
 
+// @desc    Toggle recycler active status
+// @route   PATCH /api/admin/recyclers/:id/toggle-active
+// @access  Private/Admin
+const toggleActiveStatus = async (req, res) => {
+  try {
+    const Recycler = require('../../models/Recycler');
+    const { isActive } = req.body;
+
+    const recycler = await Recycler.findById(req.params.id);
+
+    if (!recycler) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        message: 'Recycler not found',
+      });
+    }
+
+    recycler.isActive = isActive !== undefined ? isActive : !recycler.isActive;
+    await recycler.save();
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: `Recycler ${recycler.isActive ? 'activated' : 'deactivated'} successfully`,
+      data: recycler,
+    });
+  } catch (error) {
+    console.error('Toggle Active Status Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to toggle active status',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllRecyclers,
   getRecyclerById,
@@ -529,4 +616,5 @@ module.exports = {
   updateRecycler,
   deleteRecycler,
   getRecyclerStats,
+  toggleActiveStatus,
 };

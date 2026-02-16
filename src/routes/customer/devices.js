@@ -8,6 +8,7 @@ const {
   getDevicesByBrand,
   getDevicesByCategory,
   getAllBrands,
+  getAllCategories,
   getPopularDevices,
 } = require('../../controllers/customer/deviceController');
 
@@ -17,6 +18,7 @@ const {
 router.get('/', getAllDevices);
 router.get('/search', searchDevices);
 router.get('/brands', getAllBrands);
+router.get('/categories', getAllCategories);
 router.get('/popular', getPopularDevices);
 router.get('/brand/:brand', getDevicesByBrand);
 router.get('/category/:category', getDevicesByCategory);

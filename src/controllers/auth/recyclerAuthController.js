@@ -138,6 +138,7 @@ const verifyRecyclerOTP = async (req, res) => {
   try {
     const Recycler = require('../../models/Recycler');
     const OTP = require('../../models/OTP');
+    const RecyclerSession = require('../../models/RecyclerSession');
     const { email, otp } = req.body;
 
     if (!email || !otp) {
@@ -214,8 +215,36 @@ const verifyRecyclerOTP = async (req, res) => {
     otpRecord.verified = true;
     await otpRecord.save();
 
-    // Generate token
-    const token = generateToken({ id: recycler._id, role: 'recycler' });
+    // Invalidate any existing sessions for this recycler
+    await RecyclerSession.invalidateAllUserSessions(recycler._id);
+
+    // Create new session in database
+    const sessionToken = RecyclerSession.generateSessionToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await RecyclerSession.create({
+      recyclerId: recycler._id,
+      email: normalizedEmail,
+      sessionToken,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent'),
+      expiresAt,
+    });
+
+    // Also generate JWT token for additional security
+    console.log('Creating JWT with:', {
+      id: recycler._id.toString(),
+      email: normalizedEmail,
+      role: 'recycler',
+      sessionToken
+    });
+    
+    const jwtToken = generateToken({ 
+      id: recycler._id.toString(), // Convert to string
+      email: normalizedEmail,
+      role: 'recycler',
+      sessionToken, // Include session token in JWT
+    });
 
     // Update last login
     recycler.lastLogin = new Date();
@@ -225,7 +254,8 @@ const verifyRecyclerOTP = async (req, res) => {
       success: true,
       message: 'Login successful',
       data: {
-        token,
+        token: jwtToken,
+        sessionToken,
         recycler: {
           id: recycler._id,
           name: recycler.name,
@@ -234,6 +264,7 @@ const verifyRecyclerOTP = async (req, res) => {
           status: recycler.status,
           isFirstLogin: !recycler.lastLogin,
         },
+        expiresAt,
       },
     });
   } catch (error) {
@@ -641,9 +672,36 @@ const getRecyclerStats = async (req, res) => {
   }
 };
 
+// @desc    Logout recycler (invalidate session)
+// @route   POST /api/auth/recycler/logout
+// @access  Private/Recycler
+const logoutRecycler = async (req, res) => {
+  try {
+    const RecyclerSession = require('../../models/RecyclerSession');
+    const sessionToken = req.sessionToken; // Set by middleware
+
+    if (sessionToken) {
+      await RecyclerSession.invalidateSession(sessionToken);
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    console.error('Logout Recycler Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to logout',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   sendRecyclerOTP,
   verifyRecyclerOTP,
+  logoutRecycler,
   changeRecyclerPassword,
   forgotPassword,
   resetPassword,

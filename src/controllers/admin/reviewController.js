@@ -29,9 +29,8 @@ const getAllReviews = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'name email')
-      .populate('recyclerId', 'name')
-      .populate('orderId', 'orderId');
+      .populate('recyclerId', 'companyName name email phone logo')
+      .populate('orderId', 'orderNumber customerName customerEmail deviceName');
 
     const total = await Review.countDocuments(filter);
 
@@ -63,9 +62,8 @@ const getReviewById = async (req, res) => {
     const Review = require('../../models/Review');
 
     const review = await Review.findById(req.params.id)
-      .populate('userId', 'name email phone')
-      .populate('recyclerId', 'name email')
-      .populate('orderId', 'orderId phone.model price');
+      .populate('recyclerId', 'companyName name email phone logo city')
+      .populate('orderId', 'orderNumber customerName customerEmail customerPhone deviceName price storage condition');
 
     if (!review) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -237,10 +235,17 @@ const getReviewStats = async (req, res) => {
   try {
     const Review = require('../../models/Review');
 
+    // Get all reviews for debugging
+    const allReviews = await Review.find({});
+    console.log('All reviews in DB:', allReviews.length);
+    console.log('Review statuses:', allReviews.map(r => ({ id: r._id, status: r.status, recyclerId: r.recyclerId })));
+
     const totalReviews = await Review.countDocuments();
     const approvedReviews = await Review.countDocuments({ status: 'approved' });
     const pendingReviews = await Review.countDocuments({ status: 'pending' });
     const rejectedReviews = await Review.countDocuments({ status: 'rejected' });
+
+    console.log('Stats counts:', { totalReviews, approvedReviews, pendingReviews, rejectedReviews });
 
     // Average rating
     const avgRatingResult = await Review.aggregate([

@@ -71,8 +71,8 @@ app.use(morgan('combined', {
   }
 }));
 
-// Rate limiting
-app.use('/api', generalLimiter);
+// Rate limiting - DISABLED
+// app.use('/api', generalLimiter);
 
 // API routes
 app.use('/api', require('./routes'));

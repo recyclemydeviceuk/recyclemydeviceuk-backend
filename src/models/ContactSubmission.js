@@ -34,6 +34,13 @@ const contactSchema = new mongoose.Schema({
     enum: ['new', 'in_progress', 'resolved', 'closed'],
     default: 'new',
   },
+  isRead: {
+    type: Boolean,
+    default: false,
+  },
+  readAt: {
+    type: Date,
+  },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

@@ -5,3 +5,5 @@ uploads/
 .DS_Store
 scripts/
 seeders/
+seeds/
+SEEDER_GUIDE.md 

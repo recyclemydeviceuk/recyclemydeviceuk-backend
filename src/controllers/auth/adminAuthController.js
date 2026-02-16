@@ -156,6 +156,7 @@ const sendAdminOTP = async (req, res) => {
 const verifyAdminOTP = async (req, res) => {
   try {
     const OTP = require('../../models/OTP');
+    const AdminSession = require('../../models/AdminSession');
     const { email, otp } = req.body;
 
     if (!email || !otp) {
@@ -223,21 +224,39 @@ const verifyAdminOTP = async (req, res) => {
     otpRecord.verified = true;
     await otpRecord.save();
 
-    // Generate token with email and admin role
-    const token = generateToken({ 
+    // Invalidate any existing sessions for this email
+    await AdminSession.invalidateAllUserSessions(normalizedEmail);
+
+    // Create new session in database
+    const sessionToken = AdminSession.generateSessionToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await AdminSession.create({
+      email: normalizedEmail,
+      sessionToken,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent'),
+      expiresAt,
+    });
+
+    // Also generate JWT token for additional security
+    const jwtToken = generateToken({ 
       email: normalizedEmail, 
-      role: 'admin' 
+      role: 'admin',
+      sessionToken, // Include session token in JWT
     });
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Login successful',
       data: {
-        token,
+        token: jwtToken,
+        sessionToken,
         admin: {
           email: normalizedEmail,
           role: 'admin',
         },
+        expiresAt,
       },
     });
   } catch (error) {
@@ -318,20 +337,25 @@ const changeAdminPassword = async (req, res) => {
 // @access  Private/Admin
 const getAdminProfile = async (req, res) => {
   try {
-    const User = require('../../models/User');
+    // Email-based admin system (no User model needed)
+    // Return email from JWT token set by middleware
+    const adminEmail = req.user.email;
+    const allowedEmails = getAllowedAdminEmails();
 
-    const admin = await User.findById(req.user._id).select('-password');
-
-    if (!admin) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
+    // Verify email is still in whitelist
+    if (!allowedEmails.includes(adminEmail.toLowerCase())) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
-        message: 'Admin not found',
+        message: 'Admin access revoked',
       });
     }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: admin,
+      data: {
+        email: adminEmail,
+        role: 'admin',
+      },
     });
   } catch (error) {
     console.error('Get Admin Profile Error:', error);
@@ -386,10 +410,37 @@ const updateAdminProfile = async (req, res) => {
   }
 };
 
+// @desc    Logout admin (invalidate session)
+// @route   POST /api/auth/admin/logout
+// @access  Private/Admin
+const logoutAdmin = async (req, res) => {
+  try {
+    const AdminSession = require('../../models/AdminSession');
+    const sessionToken = req.sessionToken; // Set by middleware
+
+    if (sessionToken) {
+      await AdminSession.invalidateSession(sessionToken);
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    console.error('Logout Admin Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to logout',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   checkAdminEmail,
   sendAdminOTP,
   verifyAdminOTP,
+  logoutAdmin,
   changeAdminPassword,
   getAdminProfile,
   updateAdminProfile,

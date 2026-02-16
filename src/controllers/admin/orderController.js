@@ -18,12 +18,18 @@ const getAllOrders = async (req, res) => {
     const filter = {};
     if (status) filter.status = status;
     if (paymentStatus) filter.paymentStatus = paymentStatus;
+    
+    // Handle search across orderNumber, customer name/email
     if (search) {
       filter.$or = [
-        { orderId: { $regex: search, $options: 'i' } },
-        { 'phone.model': { $regex: search, $options: 'i' } },
+        { orderNumber: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { customerEmail: { $regex: search, $options: 'i' } },
+        { deviceName: { $regex: search, $options: 'i' } },
+        { recyclerName: { $regex: search, $options: 'i' } },
       ];
     }
+    
     if (startDate && endDate) {
       filter.createdAt = {
         $gte: new Date(startDate),
@@ -35,10 +41,22 @@ const getAllOrders = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'name email phone')
-      .populate('recyclerId', 'name email');
+      .populate('recyclerId', 'companyName email')
+      .populate('deviceId', 'name');
 
     const total = await Order.countDocuments(filter);
+
+    // Calculate total revenue from completed & paid orders (all, not just current page)
+    const revenueFilter = { ...filter, status: 'completed', paymentStatus: 'paid' };
+    const revenueResult = await Order.aggregate([
+      { $match: revenueFilter },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalRevenue = Math.floor(revenueResult[0]?.total || 0);
+
+    // Count pending orders
+    const pendingFilter = { ...filter, status: 'pending' };
+    const pendingCount = await Order.countDocuments(pendingFilter);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -48,6 +66,11 @@ const getAllOrders = async (req, res) => {
         limit,
         total,
         pages: Math.ceil(total / limit),
+      },
+      stats: {
+        totalRevenue: Math.floor(totalRevenue),
+        pendingOrders: pendingCount,
+        totalOrders: total,
       },
     });
   } catch (error) {
@@ -68,8 +91,8 @@ const getOrderById = async (req, res) => {
     const Order = require('../../models/Order');
 
     const order = await Order.findById(req.params.id)
-      .populate('userId', 'name email phone')
-      .populate('recyclerId', 'name email phone logo');
+      .populate('recyclerId', 'companyName email phone logo')
+      .populate('deviceId', 'name');
 
     if (!order) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -171,7 +194,7 @@ const updateOrderStatus = async (req, res) => {
                 <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center;">
                   <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
                   <h3 style="color: #166534; margin: 0 0 10px 0; font-size: 20px;">Payment Processing</h3>
-                  <p style="margin: 0; color: #166534; font-size: 14px;">Your payment of <strong style="font-size: 24px; display: block; margin: 10px 0;">£${order.amount}</strong> will be transferred to your account shortly</p>
+                  <p style="margin: 0; color: #166534; font-size: 14px;">Your payment of <strong style="font-size: 24px; display: block; margin: 10px 0;">£${Math.round(order.amount)}</strong> will be transferred to your account shortly</p>
                 </div>
 
                 <!-- Order Summary -->
@@ -529,19 +552,19 @@ const exportOrders = async (req, res) => {
     }
 
     const orders = await Order.find(filter)
-      .populate('userId', 'name email')
-      .populate('recyclerId', 'name')
+      .populate('recyclerId', 'companyName')
+      .populate('deviceId', 'name')
       .sort({ createdAt: -1 });
 
     // Convert to CSV format
     const csv = orders.map(order => ({
-      'Order ID': order.orderId,
-      'Customer Name': order.userId?.name || 'N/A',
-      'Customer Email': order.userId?.email || 'N/A',
-      'Phone Model': order.phone?.model || 'N/A',
-      'Storage': order.phone?.storage || 'N/A',
-      'Condition': order.phone?.condition || 'N/A',
-      'Price': order.price,
+      'Order Number': order.orderNumber,
+      'Customer Name': order.customerName || 'N/A',
+      'Customer Email': order.customerEmail || 'N/A',
+      'Device': order.deviceId?.name || 'N/A',
+      'Storage': order.storage || 'N/A',
+      'Condition': order.deviceCondition || 'N/A',
+      'Amount': Math.round(order.amount),
       'Status': order.status,
       'Payment Status': order.paymentStatus,
       'Recycler': order.recyclerId?.name || 'Not Assigned',

@@ -26,19 +26,35 @@ const getDevicePrices = async (req, res) => {
       deviceId,
       isActive: true,
     })
-      .populate('recyclerId', 'companyName email phone city logo usps')
+      .populate({
+        path: 'recyclerId',
+        match: { status: 'approved' }, // Only approved recyclers
+        select: 'companyName email phone city logo usps status',
+      })
       .sort({ createdAt: -1 });
 
-    if (!pricingData || pricingData.length === 0) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        message: 'No pricing available for this device',
+    // Filter out any pricing where recyclerId is null (recycler not approved)
+    const approvedPricing = pricingData.filter(p => p.recyclerId !== null);
+
+    if (!approvedPricing || approvedPricing.length === 0) {
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        data: {
+          device: {
+            id: device._id,
+            name: device.name,
+            brand: device.brand.name,
+            image: device.image,
+            category: device.category,
+          },
+          offers: [],
+        },
       });
     }
 
     // If storage and condition are provided, filter and format the results
     if (storage && condition) {
-      const offers = pricingData
+      const offers = approvedPricing
         .map((pricing) => {
           // Find the storage pricing
           const storagePrice = pricing.storagePricing.find(
@@ -49,9 +65,9 @@ const getDevicePrices = async (req, res) => {
 
           // Get the condition price
           const conditionKey = condition.toLowerCase();
-          const price = storagePrice.conditions[conditionKey];
+          const price = storagePrice.conditions.get(conditionKey);
 
-          if (price === undefined) return null;
+          if (price === undefined || price === null) return null;
 
           return {
             recycler: {
@@ -99,7 +115,7 @@ const getDevicePrices = async (req, res) => {
           storageOptions: device.storageOptions,
           conditionOptions: device.conditionOptions,
         },
-        pricing: pricingData.map((p) => ({
+        pricing: approvedPricing.map((p) => ({
           recycler: {
             id: p.recyclerId._id,
             name: p.recyclerId.companyName,

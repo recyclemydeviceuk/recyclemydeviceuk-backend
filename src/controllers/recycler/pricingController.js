@@ -106,6 +106,21 @@ const createOrUpdatePricing = async (req, res) => {
       });
     }
 
+    // Normalize condition keys to lowercase for consistency
+    const normalizedStoragePricing = storagePricing.map(sp => {
+      const normalizedConditions = {};
+      const conditions = sp.conditions instanceof Map ? Object.fromEntries(sp.conditions) : sp.conditions;
+      
+      Object.keys(conditions).forEach(key => {
+        normalizedConditions[key.toLowerCase()] = conditions[key];
+      });
+      
+      return {
+        storage: sp.storage,
+        conditions: normalizedConditions,
+      };
+    });
+
     // Check if pricing already exists
     let pricing = await RecyclerDevicePricing.findOne({
       recyclerId,
@@ -114,7 +129,7 @@ const createOrUpdatePricing = async (req, res) => {
 
     if (pricing) {
       // Update existing pricing
-      pricing.storagePricing = storagePricing;
+      pricing.storagePricing = normalizedStoragePricing;
       pricing.isActive = isActive !== undefined ? isActive : pricing.isActive;
       await pricing.save();
 
@@ -128,7 +143,7 @@ const createOrUpdatePricing = async (req, res) => {
       pricing = await RecyclerDevicePricing.create({
         recyclerId,
         deviceId,
-        storagePricing,
+        storagePricing: normalizedStoragePricing,
         isActive: isActive !== undefined ? isActive : true,
       });
 

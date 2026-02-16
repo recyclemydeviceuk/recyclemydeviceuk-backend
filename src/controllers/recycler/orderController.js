@@ -8,8 +8,26 @@ const { sendEmail } = require('../../config/aws');
 const getAllOrders = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    // Get recycler ID from JWT token
+    const recyclerIdString = req.user.id || req.user._id;
+    console.log('Recycler ID from token:', recyclerIdString);
+    console.log('Full req.user:', req.user);
+
+    // Convert to ObjectId if it's a valid string
+    let recyclerId;
+    try {
+      recyclerId = mongoose.Types.ObjectId.isValid(recyclerIdString) 
+        ? new mongoose.Types.ObjectId(recyclerIdString)
+        : recyclerIdString;
+    } catch (err) {
+      console.error('Error converting recyclerId to ObjectId:', err);
+      recyclerId = recyclerIdString;
+    }
+
+    console.log('Converted recyclerId:', recyclerId);
+
     const page = parseInt(req.query.page) || PAGINATION.DEFAULT_PAGE;
     const limit = parseInt(req.query.limit) || PAGINATION.DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
@@ -39,10 +57,12 @@ const getAllOrders = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('userId', 'name email phone')
         .populate('deviceId', 'name brand model image'),
       Order.countDocuments(filter),
     ]);
+
+    console.log('Filter being used:', filter);
+    console.log('Total orders found:', total);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -56,6 +76,7 @@ const getAllOrders = async (req, res) => {
     });
   } catch (error) {
     console.error('Get All Orders Error:', error);
+    console.error('Error stack:', error.stack);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'Failed to fetch orders',
@@ -70,11 +91,11 @@ const getAllOrders = async (req, res) => {
 const getOrderById = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
 
     const order = await Order.findOne({ _id: req.params.id, recyclerId })
-      .populate('userId', 'name email phone address city postcode')
       .populate('deviceId', 'name brand model specifications image');
 
     if (!order) {
@@ -105,8 +126,9 @@ const updateOrderStatus = async (req, res) => {
   try {
     const Order = require('../../models/Order');
     const User = require('../../models/User');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
     const { status, notes } = req.body;
 
     if (!status) {
@@ -117,7 +139,6 @@ const updateOrderStatus = async (req, res) => {
     }
 
     const order = await Order.findOne({ _id: req.params.id, recyclerId })
-      .populate('userId', 'name email')
       .populate('deviceId', 'name brand model');
 
     if (!order) {
@@ -197,8 +218,70 @@ const updateOrderStatus = async (req, res) => {
             </div>
           `,
         });
+        console.log(`✅ Order status email sent successfully to ${order.customerEmail}`);
       } catch (emailError) {
-        console.error('Email sending failed:', emailError);
+        console.error('❌ Email sending failed:', emailError);
+      }
+    } else {
+      console.log('⚠️ No customer email found for order:', order.orderNumber);
+    }
+
+    // Send review request email if order is completed AND paid
+    if (status === 'completed' && order.paymentStatus === 'paid' && order.customerEmail) {
+      try {
+        console.log(`📧 Sending review request email to: ${order.customerEmail}`);
+        
+        const reviewLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/review?order=${order.orderNumber}&email=${order.customerEmail}`;
+        
+        await sendEmail({
+          to: order.customerEmail,
+          subject: '⭐ Share Your Experience - Recycle My Device',
+          htmlBody: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1b981b; margin: 0;">Recycle My Device</h1>
+                <p style="color: #666; margin: 5px 0;">Sustainable Device Recycling</p>
+              </div>
+              
+              <h2 style="color: #333; border-bottom: 3px solid #1b981b; padding-bottom: 10px;">How Was Your Experience?</h2>
+              
+              <p style="font-size: 16px; color: #333;">Hello ${order.customerName},</p>
+              
+              <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                Thank you for choosing Recycle My Device! We're thrilled that your order <strong>#${order.orderNumber}</strong> has been completed and payment of <strong>£${order.amount}</strong> has been processed.
+              </p>
+              
+              <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                We'd love to hear about your experience! Your feedback helps us improve our services and helps other customers make informed decisions.
+              </p>
+              
+              <div style="text-align: center; margin: 40px 0;">
+                <a href="${reviewLink}" style="display: inline-block; background: #1b981b; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(27, 152, 27, 0.3);">
+                  ⭐ Leave a Review
+                </a>
+              </div>
+              
+              <div style="background-color: #f0f9f0; border-left: 4px solid #1b981b; padding: 20px; margin: 30px 0; border-radius: 5px;">
+                <p style="margin: 0; color: #333;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Device:</strong> ${order.deviceId?.name || order.deviceName || 'N/A'}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Amount Paid:</strong> £${order.amount}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666; line-height: 1.6;">
+                Your review will be visible on our website after approval and will help us maintain our high standards of service.
+              </p>
+              
+              <p style="color: #666; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                Best regards,<br>
+                <strong style="color: #1b981b;">Recycle My Device Team</strong><br>
+                <a href="mailto:support@recyclemydevice.co.uk" style="color: #1b981b;">support@recyclemydevice.co.uk</a>
+              </p>
+            </div>
+          `,
+        });
+        console.log(`✅ Review request email sent successfully to ${order.customerEmail}`);
+      } catch (emailError) {
+        console.error('❌ Review request email sending failed:', emailError);
       }
     }
 
@@ -223,11 +306,18 @@ const updateOrderStatus = async (req, res) => {
 const updatePaymentStatus = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    console.log('Update Payment Status - Request Body:', req.body);
+    console.log('Update Payment Status - Params:', req.params);
+
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
     const { paymentStatus, transactionId } = req.body;
 
+    console.log('Extracted paymentStatus:', paymentStatus);
+
     if (!paymentStatus) {
+      console.log('Payment status is missing!');
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: 'Payment status is required',
@@ -248,6 +338,164 @@ const updatePaymentStatus = async (req, res) => {
     if (paymentStatus === 'paid') order.paidAt = new Date();
 
     await order.save();
+
+    // Send email notification for payment status changes
+    if (order.customerEmail) {
+      try {
+        let emailSubject = '';
+        let emailMessage = '';
+
+        switch (paymentStatus) {
+          case 'pending':
+            emailSubject = 'Payment Pending - Recycle My Device';
+            emailMessage = `
+              <p>The payment for your order <strong>#${order.orderNumber}</strong> is currently pending.</p>
+              <p>We will process your payment once the order is completed.</p>
+            `;
+            break;
+          case 'processing':
+            emailSubject = 'Payment Processing - Recycle My Device';
+            emailMessage = `
+              <p>We are processing the payment for your order <strong>#${order.orderNumber}</strong>.</p>
+              <p>Amount: <strong>£${order.amount}</strong></p>
+              <p>You will receive confirmation once the payment is completed.</p>
+            `;
+            break;
+          case 'paid':
+            emailSubject = '✅ Payment Completed - Recycle My Device';
+            emailMessage = `
+              <p>Great news! The payment for your order <strong>#${order.orderNumber}</strong> has been completed.</p>
+              <p>Amount Paid: <strong>£${order.amount}</strong></p>
+              ${transactionId ? `<p>Transaction ID: <strong>${transactionId}</strong></p>` : ''}
+              <p>The funds will be transferred to your account within 3-5 business days.</p>
+              <p>Thank you for choosing Recycle My Device!</p>
+            `;
+            break;
+          case 'failed':
+            emailSubject = 'Payment Failed - Recycle My Device';
+            emailMessage = `
+              <p>Unfortunately, the payment for your order <strong>#${order.orderNumber}</strong> has failed.</p>
+              <p>Our team will contact you shortly to resolve this issue.</p>
+              <p>If you have any questions, please contact our support team.</p>
+            `;
+            break;
+          case 'refunded':
+            emailSubject = 'Payment Refunded - Recycle My Device';
+            emailMessage = `
+              <p>The payment for your order <strong>#${order.orderNumber}</strong> has been refunded.</p>
+              <p>Refund Amount: <strong>£${order.amount}</strong></p>
+              <p>The funds will be returned to your original payment method within 5-10 business days.</p>
+            `;
+            break;
+          default:
+            emailSubject = 'Payment Status Update';
+            emailMessage = `
+              <p>The payment status for your order <strong>#${order.orderNumber}</strong> has been updated to <strong>${paymentStatus}</strong>.</p>
+            `;
+        }
+
+        console.log(`Sending payment status email to: ${order.customerEmail}`);
+        
+        await sendEmail({
+          to: order.customerEmail,
+          subject: emailSubject,
+          htmlBody: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1b981b; margin: 0;">Recycle My Device</h1>
+                <p style="color: #666; margin: 5px 0;">Sustainable Device Recycling</p>
+              </div>
+              
+              <h2 style="color: #333; border-bottom: 3px solid #1b981b; padding-bottom: 10px;">Payment Update</h2>
+              
+              <p style="font-size: 16px; color: #333;">Hello ${order.customerName},</p>
+              
+              ${emailMessage}
+              
+              <div style="background-color: #f0f9f0; border-left: 4px solid #1b981b; padding: 20px; margin: 30px 0; border-radius: 5px;">
+                <p style="margin: 0; color: #333;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Device:</strong> ${order.deviceId?.name || order.deviceName || 'N/A'}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Amount:</strong> £${order.amount}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Payment Status:</strong> <span style="background: ${paymentStatus === 'paid' ? '#1b981b' : '#f59e0b'}; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">${paymentStatus.toUpperCase()}</span></p>
+                ${transactionId ? `<p style="margin: 10px 0 0 0; color: #333;"><strong>Transaction ID:</strong> ${transactionId}</p>` : ''}
+              </div>
+              
+              <p style="color: #666; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                Best regards,<br>
+                <strong style="color: #1b981b;">Recycle My Device Team</strong><br>
+                <a href="mailto:support@recyclemydevice.co.uk" style="color: #1b981b;">support@recyclemydevice.co.uk</a>
+              </p>
+            </div>
+          `,
+        });
+        
+        console.log(`✅ Payment status email sent successfully to ${order.customerEmail}`);
+      } catch (emailError) {
+        console.error('❌ Payment email sending failed:', emailError);
+      }
+    } else {
+      console.log('⚠️ No customer email found for order:', order.orderNumber);
+    }
+
+    // Send review request email if payment is paid AND order is completed
+    if (paymentStatus === 'paid' && order.status === 'completed' && order.customerEmail) {
+      try {
+        console.log(`📧 Sending review request email to: ${order.customerEmail}`);
+        
+        const reviewLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/review?order=${order.orderNumber}&email=${order.customerEmail}`;
+        
+        await sendEmail({
+          to: order.customerEmail,
+          subject: '⭐ Share Your Experience - Recycle My Device',
+          htmlBody: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1b981b; margin: 0;">Recycle My Device</h1>
+                <p style="color: #666; margin: 5px 0;">Sustainable Device Recycling</p>
+              </div>
+              
+              <h2 style="color: #333; border-bottom: 3px solid #1b981b; padding-bottom: 10px;">How Was Your Experience?</h2>
+              
+              <p style="font-size: 16px; color: #333;">Hello ${order.customerName},</p>
+              
+              <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                Thank you for choosing Recycle My Device! We're thrilled that your order <strong>#${order.orderNumber}</strong> has been completed and payment of <strong>£${order.amount}</strong> has been processed.
+              </p>
+              
+              <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                We'd love to hear about your experience! Your feedback helps us improve our services and helps other customers make informed decisions.
+              </p>
+              
+              <div style="text-align: center; margin: 40px 0;">
+                <a href="${reviewLink}" style="display: inline-block; background: #1b981b; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(27, 152, 27, 0.3);">
+                  ⭐ Leave a Review
+                </a>
+              </div>
+              
+              <div style="background-color: #f0f9f0; border-left: 4px solid #1b981b; padding: 20px; margin: 30px 0; border-radius: 5px;">
+                <p style="margin: 0; color: #333;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Device:</strong> ${order.deviceId?.name || order.deviceName || 'N/A'}</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Amount Paid:</strong> £${order.amount}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666; line-height: 1.6;">
+                Your review will be visible on our website after approval and will help us maintain our high standards of service.
+              </p>
+              
+              <p style="color: #666; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                Best regards,<br>
+                <strong style="color: #1b981b;">Recycle My Device Team</strong><br>
+                <a href="mailto:support@recyclemydevice.co.uk" style="color: #1b981b;">support@recyclemydevice.co.uk</a>
+              </p>
+            </div>
+          `,
+        });
+        
+        console.log(`✅ Review request email sent successfully to ${order.customerEmail}`);
+      } catch (emailError) {
+        console.error('❌ Review request email sending failed:', emailError);
+      }
+    }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -270,8 +518,9 @@ const updatePaymentStatus = async (req, res) => {
 const addOrderNote = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
     const { note } = req.body;
 
     if (!note) {
@@ -321,17 +570,17 @@ const addOrderNote = async (req, res) => {
 const getOrdersByStatus = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
     const { status } = req.params;
     const limit = parseInt(req.query.limit) || 50;
 
     const orders = await Order.find({ recyclerId, status })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId', 'name email')
       .populate('deviceId', 'name brand model')
-      .select('orderNumber status amount deviceCondition createdAt');
+      .select('orderNumber customerName customerEmail status amount deviceCondition createdAt');
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -355,11 +604,11 @@ const getOrderStats = async (req, res) => {
     const Order = require('../../models/Order');
     const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
 
     const stats = await Order.aggregate([
       {
-        $match: { recyclerId: mongoose.Types.ObjectId(recyclerId) },
+        $match: { recyclerId: recyclerId },
       },
       {
         $group: {
@@ -390,8 +639,9 @@ const getOrderStats = async (req, res) => {
 const exportOrders = async (req, res) => {
   try {
     const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
 
-    const recyclerId = req.user._id;
+    const recyclerId = new mongoose.Types.ObjectId(req.user._id || req.user.id);
     const { startDate, endDate, status } = req.query;
 
     const filter = { recyclerId };
@@ -404,7 +654,6 @@ const exportOrders = async (req, res) => {
     }
 
     const orders = await Order.find(filter)
-      .populate('userId', 'name email')
       .populate('deviceId', 'name brand model')
       .sort({ createdAt: -1 });
 
@@ -414,8 +663,8 @@ const exportOrders = async (req, res) => {
     orders.forEach((order) => {
       csv += `${order.orderNumber},`;
       csv += `${new Date(order.createdAt).toLocaleDateString()},`;
-      csv += `${order.userId?.name || 'N/A'},`;
-      csv += `${order.userId?.email || 'N/A'},`;
+      csv += `${order.customerName || 'N/A'},`;
+      csv += `${order.customerEmail || 'N/A'},`;
       csv += `${order.deviceId?.name || 'N/A'},`;
       csv += `${order.deviceCondition || 'N/A'},`;
       csv += `£${order.amount},`;
@@ -436,6 +685,56 @@ const exportOrders = async (req, res) => {
   }
 };
 
+// @desc    Get available order statuses
+// @route   GET /api/recycler/orders/utilities/statuses
+// @access  Private/Recycler
+const getOrderStatuses = async (req, res) => {
+  try {
+    const OrderStatus = require('../../models/OrderStatus');
+
+    const statuses = await OrderStatus.find({ isActive: true })
+      .select('name label description')
+      .sort({ order: 1 });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: statuses,
+    });
+  } catch (error) {
+    console.error('Get Order Statuses Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to fetch order statuses',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get available payment statuses
+// @route   GET /api/recycler/orders/utilities/payment-statuses
+// @access  Private/Recycler
+const getPaymentStatuses = async (req, res) => {
+  try {
+    const PaymentStatus = require('../../models/PaymentStatus');
+
+    const statuses = await PaymentStatus.find({ isActive: true })
+      .select('name label description')
+      .sort({ order: 1 });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: statuses,
+    });
+  } catch (error) {
+    console.error('Get Payment Statuses Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to fetch payment statuses',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllOrders,
   getOrderById,
@@ -445,4 +744,6 @@ module.exports = {
   getOrdersByStatus,
   getOrderStats,
   exportOrders,
+  getOrderStatuses,
+  getPaymentStatuses,
 };

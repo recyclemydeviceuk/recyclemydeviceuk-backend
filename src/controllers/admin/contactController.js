@@ -7,7 +7,7 @@ const { sendEmail } = require('../../config/aws');
 // @access  Private/Admin
 const getAllContacts = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
 
     const page = parseInt(req.query.page) || PAGINATION.DEFAULT_PAGE;
     const limit = parseInt(req.query.limit) || PAGINATION.DEFAULT_LIMIT;
@@ -64,7 +64,7 @@ const getAllContacts = async (req, res) => {
 // @access  Private/Admin
 const getContactById = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
 
     const contact = await Contact.findById(req.params.id);
 
@@ -101,7 +101,7 @@ const getContactById = async (req, res) => {
 // @access  Private/Admin
 const replyToContact = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
     const { message } = req.body;
 
     if (!message) {
@@ -124,7 +124,7 @@ const replyToContact = async (req, res) => {
     try {
       await sendEmail({
         to: contact.email,
-        subject: `Re: ${contact.subject}`,
+        subject: `Re: ${contact.subject || 'Your Contact Form Submission'}`,
         htmlBody: `
           <h2>Hello ${contact.name},</h2>
           <p>Thank you for contacting Recycle My Device. Here's our response to your inquiry:</p>
@@ -140,10 +140,9 @@ const replyToContact = async (req, res) => {
         `,
       });
 
-      contact.status = 'replied';
-      contact.repliedAt = new Date();
-      contact.repliedBy = req.user._id;
-      contact.reply = message;
+      contact.status = 'resolved';
+      contact.respondedAt = new Date();
+      contact.response = message;
       await contact.save();
 
       res.status(HTTP_STATUS.OK).json({
@@ -174,7 +173,7 @@ const replyToContact = async (req, res) => {
 // @access  Private/Admin
 const updateContactStatus = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
     const { status } = req.body;
 
     if (!status) {
@@ -217,7 +216,7 @@ const updateContactStatus = async (req, res) => {
 // @access  Private/Admin
 const markAsRead = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
 
     const contact = await Contact.findByIdAndUpdate(
       req.params.id,
@@ -252,7 +251,7 @@ const markAsRead = async (req, res) => {
 // @access  Private/Admin
 const deleteContact = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
 
     const contact = await Contact.findByIdAndDelete(req.params.id);
 
@@ -282,7 +281,7 @@ const deleteContact = async (req, res) => {
 // @access  Private/Admin
 const bulkDeleteContacts = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
     const { contactIds } = req.body;
 
     if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
@@ -314,12 +313,12 @@ const bulkDeleteContacts = async (req, res) => {
 // @access  Private/Admin
 const getContactStats = async (req, res) => {
   try {
-    const Contact = require('../../models/Contact');
+    const Contact = require('../../models/ContactSubmission');
 
     const totalContacts = await Contact.countDocuments();
     const unreadContacts = await Contact.countDocuments({ isRead: false });
-    const pendingContacts = await Contact.countDocuments({ status: 'pending' });
-    const repliedContacts = await Contact.countDocuments({ status: 'replied' });
+    const pendingContacts = await Contact.countDocuments({ status: 'new' });
+    const repliedContacts = await Contact.countDocuments({ status: 'resolved' });
 
     // Contacts by status
     const contactsByStatus = await Contact.aggregate([

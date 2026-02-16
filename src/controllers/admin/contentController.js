@@ -87,7 +87,7 @@ const getBlogById = async (req, res) => {
 };
 
 // @desc    Create blog post
-// @route   POST /api/admin/blog
+// @route   POST /api/admin/content/blogs
 // @access  Private/Admin
 const createBlog = async (req, res) => {
   try {
@@ -96,10 +96,13 @@ const createBlog = async (req, res) => {
     // Handle image upload if present
     if (req.file) {
       const uploadResult = await uploadToS3(req.file, 'blog-images');
-      req.body.featuredImage = uploadResult.url;
+      req.body.image = uploadResult.url;
     }
 
-    req.body.author = req.user._id;
+    // Don't override author if provided, otherwise use default
+    if (!req.body.author) {
+      req.body.author = 'Recycle My Device Team';
+    }
 
     const blog = await Blog.create(req.body);
 
@@ -119,7 +122,7 @@ const createBlog = async (req, res) => {
 };
 
 // @desc    Update blog post
-// @route   PUT /api/admin/blog/:id
+// @route   PUT /api/admin/content/blogs/:id
 // @access  Private/Admin
 const updateBlog = async (req, res) => {
   try {
@@ -128,7 +131,7 @@ const updateBlog = async (req, res) => {
     // Handle image upload if present
     if (req.file) {
       const uploadResult = await uploadToS3(req.file, 'blog-images');
-      req.body.featuredImage = uploadResult.url;
+      req.body.image = uploadResult.url;
     }
 
     const blog = await Blog.findByIdAndUpdate(

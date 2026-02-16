@@ -14,33 +14,16 @@ const recyclerDevicePricingSchema = new mongoose.Schema({
     required: [true, 'Device ID is required'],
     index: true,
   },
-  // Storage-based pricing
+  // Storage-based pricing (dynamic format to support any condition)
   storagePricing: [{
     storage: {
       type: String,
       required: true,
     },
     conditions: {
-      excellent: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      good: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      fair: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      poor: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
+      type: Map,
+      of: Number,
+      default: {},
     },
   }],
   isActive: {

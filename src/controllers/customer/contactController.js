@@ -164,7 +164,7 @@ const subscribeNewsletter = async (req, res) => {
   try {
     const Newsletter = require('../../models/Newsletter');
 
-    const { email, name } = req.body;
+    const { email } = req.body;
 
     if (!email) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -194,7 +194,6 @@ const subscribeNewsletter = async (req, res) => {
       } else {
         // Reactivate subscription
         existingSubscription.status = 'active';
-        existingSubscription.name = name || existingSubscription.name;
         await existingSubscription.save();
 
         return res.status(HTTP_STATUS.OK).json({
@@ -207,7 +206,6 @@ const subscribeNewsletter = async (req, res) => {
     // Create new subscription
     await Newsletter.create({
       email,
-      name: name || '',
       status: 'active',
     });
 
@@ -220,7 +218,7 @@ const subscribeNewsletter = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #1e3a8a;">Welcome to Our Newsletter!</h1>
             
-            <p style="font-size: 16px;">Hello${name ? ' ' + name : ''},</p>
+            <p style="font-size: 16px;">Hello,</p>
             
             <p style="font-size: 16px; line-height: 1.6;">
               Thank you for subscribing to the Recycle My Device newsletter! You'll now receive:

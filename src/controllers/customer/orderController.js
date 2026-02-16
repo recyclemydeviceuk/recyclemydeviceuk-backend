@@ -2,6 +2,7 @@
 // Customers fill checkout form and place orders anonymously
 const { HTTP_STATUS } = require('../../config/constants');
 const { sendEmail } = require('../../config/aws');
+const { generateOrderNumber } = require('../../utils/generateOTP');
 
 // @desc    Create order (guest/anonymous)
 // @route   POST /api/customer/orders
@@ -59,14 +60,26 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    // Generate unique 6-digit alphanumeric order number
+    let orderNumber;
+    let isUnique = false;
+    
+    // Keep generating until we get a unique order number
+    while (!isUnique) {
+      orderNumber = generateOrderNumber();
+      const existingOrder = await Order.findOne({ orderNumber });
+      if (!existingOrder) {
+        isUnique = true;
+      }
+    }
 
     // Create order
     const order = await Order.create({
       orderNumber,
       deviceId,
       recyclerId,
+      deviceName: device.name, // Store device name for search
+      recyclerName: recycler.companyName, // Store recycler name for search
       deviceCondition,
       storage,
       amount,

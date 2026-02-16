@@ -82,13 +82,20 @@ const hashOTP = (otp) => {
 };
 
 /**
- * Generate a random order/tracking number
- * @returns {string} - Generated order number (e.g., ORD-20240214-ABC123)
+ * Generate a random 6-digit alphanumeric order number
+ * @returns {string} - Generated order number (e.g., A3B7K9, X2Y9M5)
  */
 const generateOrderNumber = () => {
-  const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const random = crypto.randomBytes(3).toString('hex').toUpperCase();
-  return `ORD-${date}-${random}`;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let orderNumber = '';
+  
+  // Generate 6 random characters from the pool
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = crypto.randomInt(0, chars.length);
+    orderNumber += chars[randomIndex];
+  }
+  
+  return orderNumber;
 };
 
 /**

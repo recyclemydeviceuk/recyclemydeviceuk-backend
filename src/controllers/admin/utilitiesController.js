@@ -1,5 +1,6 @@
 // Brands, conditions, statuses
 const { HTTP_STATUS, DEVICE_BRANDS, DEVICE_CONDITIONS, DEVICE_CATEGORIES, ORDER_STATUS, PAYMENT_STATUS, RECYCLER_STATUS } = require('../../config/constants');
+const { uploadToS3, deleteFromS3 } = require('../../config/aws');
 
 // ===== BRANDS MANAGEMENT =====
 
@@ -32,16 +33,33 @@ const getAllBrands = async (req, res) => {
 const createBrand = async (req, res) => {
   try {
     const Brand = require('../../models/Brand');
-    const { name, logo } = req.body;
+    const { name } = req.body;
 
-    if (!name) {
+    console.log('Create Brand - Request body:', req.body);
+    console.log('Create Brand - File:', req.file);
+
+    if (!name || name.trim() === '') {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: 'Brand name is required',
       });
     }
 
-    const brand = await Brand.create({ name, logo });
+    let logoUrl = null;
+    let logoKey = null;
+
+    // Upload logo image if provided
+    if (req.file) {
+      const uploadResult = await uploadToS3(req.file, 'brand-logos');
+      logoUrl = uploadResult.url;
+      logoKey = uploadResult.key;
+    }
+
+    const brand = await Brand.create({ 
+      name, 
+      logo: logoUrl,
+      logoKey: logoKey 
+    });
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
@@ -50,6 +68,12 @@ const createBrand = async (req, res) => {
     });
   } catch (error) {
     console.error('Create Brand Error:', error);
+    
+    // Delete uploaded file if brand creation fails
+    if (req.file && req.file.key) {
+      await deleteFromS3(req.file.key).catch(err => console.error('Failed to delete uploaded file:', err));
+    }
+    
     res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       message: 'Failed to create brand',
@@ -64,19 +88,74 @@ const createBrand = async (req, res) => {
 const updateBrand = async (req, res) => {
   try {
     const Brand = require('../../models/Brand');
+    const { name, deleteLogo } = req.body;
 
-    const brand = await Brand.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    console.log('Update Brand - Request body:', req.body);
+    console.log('Update Brand - File:', req.file);
+    console.log('Update Brand - Delete Logo:', deleteLogo);
 
-    if (!brand) {
+    if (!name || name.trim() === '') {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Brand name is required',
+      });
+    }
+
+    const existingBrand = await Brand.findById(req.params.id);
+    if (!existingBrand) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: 'Brand not found',
       });
     }
+
+    // If user wants to delete the logo
+    if (deleteLogo === 'true') {
+      // Delete old logo from S3 if exists
+      if (existingBrand.logoKey) {
+        await deleteFromS3(existingBrand.logoKey).catch(err => 
+          console.error('Failed to delete logo from S3:', err)
+        );
+      }
+      // Remove logo and logoKey from database using $unset
+      const brand = await Brand.findByIdAndUpdate(
+        req.params.id,
+        { 
+          $set: { name: name.trim() },
+          $unset: { logo: 1, logoKey: 1 }
+        },
+        { new: true, runValidators: true }
+      );
+
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: 'Brand updated successfully',
+        data: brand,
+      });
+    }
+    
+    const updateData = { name: name.trim() };
+
+    // If new logo is uploaded
+    if (req.file) {
+      // Delete old logo from S3 if exists
+      if (existingBrand.logoKey) {
+        await deleteFromS3(existingBrand.logoKey).catch(err => 
+          console.error('Failed to delete old logo:', err)
+        );
+      }
+
+      // Upload new logo
+      const uploadResult = await uploadToS3(req.file, 'brand-logos');
+      updateData.logo = uploadResult.url;
+      updateData.logoKey = uploadResult.key;
+    }
+
+    const brand = await Brand.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -85,6 +164,12 @@ const updateBrand = async (req, res) => {
     });
   } catch (error) {
     console.error('Update Brand Error:', error);
+    
+    // Delete uploaded file if update fails
+    if (req.file && req.file.key) {
+      await deleteFromS3(req.file.key).catch(err => console.error('Failed to delete uploaded file:', err));
+    }
+    
     res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       message: 'Failed to update brand',
@@ -100,7 +185,7 @@ const deleteBrand = async (req, res) => {
   try {
     const Brand = require('../../models/Brand');
 
-    const brand = await Brand.findByIdAndDelete(req.params.id);
+    const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
@@ -108,6 +193,15 @@ const deleteBrand = async (req, res) => {
         message: 'Brand not found',
       });
     }
+
+    // Delete logo from S3 if exists
+    if (brand.logoKey) {
+      await deleteFromS3(brand.logoKey).catch(err => 
+        console.error('Failed to delete logo from S3:', err)
+      );
+    }
+
+    await Brand.findByIdAndDelete(req.params.id);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -130,9 +224,14 @@ const deleteBrand = async (req, res) => {
 // @access  Private/Admin
 const getDeviceConditions = async (req, res) => {
   try {
+    // Return conditions as array with proper formatting
+    const conditions = Object.values(DEVICE_CONDITIONS).map(condition => 
+      condition.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    );
+
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: DEVICE_CONDITIONS,
+      data: conditions,
     });
   } catch (error) {
     console.error('Get Device Conditions Error:', error);
@@ -149,9 +248,15 @@ const getDeviceConditions = async (req, res) => {
 // @access  Private/Admin
 const getDeviceCategories = async (req, res) => {
   try {
+    // Return categories as array of objects with value and label
+    const categories = Object.values(DEVICE_CATEGORIES).map(cat => ({
+      value: cat,
+      label: cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' '),
+    }));
+
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: DEVICE_CATEGORIES,
+      data: categories,
     });
   } catch (error) {
     console.error('Get Device Categories Error:', error);
@@ -304,27 +409,7 @@ const updateSystemSettings = async (req, res) => {
 };
 
 // ===== STORAGE OPTIONS =====
-
-// @desc    Get all storage options
-// @route   GET /api/admin/utilities/storage-options
-// @access  Private/Admin
-const getStorageOptions = async (req, res) => {
-  try {
-    const storageOptions = ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB'];
-
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      data: storageOptions,
-    });
-  } catch (error) {
-    console.error('Get Storage Options Error:', error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Failed to fetch storage options',
-      error: error.message,
-    });
-  }
-};
+// (Moved to bottom of file with enhanced category-based options)
 
 // ===== PRICE RANGES =====
 
@@ -681,24 +766,306 @@ const cleanupOldData = async (req, res) => {
   }
 };
 
+// @desc    Upload image to S3
+// @route   POST /api/admin/utilities/upload-image
+// @access  Private/Admin
+const uploadImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'No image file provided',
+      });
+    }
+
+    // Upload to S3
+    const uploadResult = await uploadToS3(req.file, 'device-images');
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Image uploaded successfully',
+      data: {
+        url: uploadResult.url,
+        key: uploadResult.key,
+      },
+    });
+  } catch (error) {
+    console.error('Upload Image Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to upload image',
+      error: error.message,
+    });
+  }
+};
+
+// ===== STORAGE OPTIONS CRUD =====
+
+// @desc    Get all storage options
+// @route   GET /api/admin/utilities/storage-options
+// @access  Private/Admin
+const getStorageOptions = async (req, res) => {
+  try {
+    const StorageOption = require('../../models/StorageOption');
+    const options = await StorageOption.find().sort({ category: 1, name: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: options });
+  } catch (error) {
+    console.error('Get Storage Options Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to fetch storage options',
+      error: error.message,
+    });
+  }
+};
+
+const createStorageOption = async (req, res) => {
+  try {
+    const StorageOption = require('../../models/StorageOption');
+    const option = await StorageOption.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: option });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create storage option', error: error.message });
+  }
+};
+
+const updateStorageOption = async (req, res) => {
+  try {
+    const StorageOption = require('../../models/StorageOption');
+    const option = await StorageOption.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!option) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Storage option not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: option });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update storage option', error: error.message });
+  }
+};
+
+const deleteStorageOption = async (req, res) => {
+  try {
+    const StorageOption = require('../../models/StorageOption');
+    const option = await StorageOption.findByIdAndDelete(req.params.id);
+    if (!option) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Storage option not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'Storage option deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete storage option', error: error.message });
+  }
+};
+
+// ===== DEVICE CATEGORIES CRUD =====
+
+const getAllDeviceCategories = async (req, res) => {
+  try {
+    const DeviceCategory = require('../../models/DeviceCategory');
+    const categories = await DeviceCategory.find().sort({ order: 1, label: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: categories });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to fetch device categories', error: error.message });
+  }
+};
+
+const createDeviceCategory = async (req, res) => {
+  try {
+    const DeviceCategory = require('../../models/DeviceCategory');
+    const category = await DeviceCategory.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create device category', error: error.message });
+  }
+};
+
+const updateDeviceCategory = async (req, res) => {
+  try {
+    const DeviceCategory = require('../../models/DeviceCategory');
+    const category = await DeviceCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Device category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update device category', error: error.message });
+  }
+};
+
+const deleteDeviceCategory = async (req, res) => {
+  try {
+    const DeviceCategory = require('../../models/DeviceCategory');
+    const category = await DeviceCategory.findByIdAndDelete(req.params.id);
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Device category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'Device category deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete device category', error: error.message });
+  }
+};
+
+// ===== CONDITIONS CRUD =====
+
+const getAllConditions = async (req, res) => {
+  try {
+    const Condition = require('../../models/Condition');
+    const conditions = await Condition.find().sort({ order: 1, name: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: conditions });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to fetch conditions', error: error.message });
+  }
+};
+
+const createCondition = async (req, res) => {
+  try {
+    const Condition = require('../../models/Condition');
+    const condition = await Condition.create({ ...req.body, priceMultiplier: req.body.priceMultiplier || 0.5 });
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: condition });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create condition', error: error.message });
+  }
+};
+
+const updateCondition = async (req, res) => {
+  try {
+    const Condition = require('../../models/Condition');
+    const condition = await Condition.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!condition) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Condition not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: condition });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update condition', error: error.message });
+  }
+};
+
+const deleteCondition = async (req, res) => {
+  try {
+    const Condition = require('../../models/Condition');
+    const condition = await Condition.findByIdAndDelete(req.params.id);
+    if (!condition) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Condition not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'Condition deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete condition', error: error.message });
+  }
+};
+
+// ===== BLOG CATEGORIES CRUD =====
+
+const getAllBlogCategories = async (req, res) => {
+  try {
+    const BlogCategory = require('../../models/BlogCategory');
+    const categories = await BlogCategory.find().sort({ order: 1, name: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: categories });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to fetch blog categories', error: error.message });
+  }
+};
+
+const createBlogCategory = async (req, res) => {
+  try {
+    const BlogCategory = require('../../models/BlogCategory');
+    const category = await BlogCategory.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create blog category', error: error.message });
+  }
+};
+
+const updateBlogCategory = async (req, res) => {
+  try {
+    const BlogCategory = require('../../models/BlogCategory');
+    const category = await BlogCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Blog category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update blog category', error: error.message });
+  }
+};
+
+const deleteBlogCategory = async (req, res) => {
+  try {
+    const BlogCategory = require('../../models/BlogCategory');
+    const category = await BlogCategory.findByIdAndDelete(req.params.id);
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Blog category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'Blog category deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete blog category', error: error.message });
+  }
+};
+
+// ===== FAQ CATEGORIES CRUD =====
+
+const getAllFAQCategories = async (req, res) => {
+  try {
+    const FAQCategory = require('../../models/FAQCategory');
+    const categories = await FAQCategory.find().sort({ order: 1, name: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: categories });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to fetch FAQ categories', error: error.message });
+  }
+};
+
+const createFAQCategory = async (req, res) => {
+  try {
+    const FAQCategory = require('../../models/FAQCategory');
+    const category = await FAQCategory.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create FAQ category', error: error.message });
+  }
+};
+
+const updateFAQCategory = async (req, res) => {
+  try {
+    const FAQCategory = require('../../models/FAQCategory');
+    const category = await FAQCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'FAQ category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: category });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update FAQ category', error: error.message });
+  }
+};
+
+const deleteFAQCategory = async (req, res) => {
+  try {
+    const FAQCategory = require('../../models/FAQCategory');
+    const category = await FAQCategory.findByIdAndDelete(req.params.id);
+    if (!category) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'FAQ category not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'FAQ category deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete FAQ category', error: error.message });
+  }
+};
+
 module.exports = {
   // Brands
   getAllBrands,
   createBrand,
   updateBrand,
   deleteBrand,
-  // Constants
+  // Image
+  uploadImage,
+  // Storage Options
+  getStorageOptions,
+  createStorageOption,
+  updateStorageOption,
+  deleteStorageOption,
+  // Device Categories
+  getAllDeviceCategories,
+  createDeviceCategory,
+  updateDeviceCategory,
+  deleteDeviceCategory,
+  // Conditions
+  getAllConditions,
+  createCondition,
+  updateCondition,
+  deleteCondition,
+  // Blog Categories
+  getAllBlogCategories,
+  createBlogCategory,
+  updateBlogCategory,
+  deleteBlogCategory,
+  // FAQ Categories
+  getAllFAQCategories,
+  createFAQCategory,
+  updateFAQCategory,
+  deleteFAQCategory,
+  // Constants (read-only)
   getDeviceConditions,
   getDeviceCategories,
   getOrderStatuses,
   getPaymentStatuses,
   getRecyclerStatuses,
-  // System Settings
-  getSystemSettings,
-  updateSystemSettings,
-  // Storage Options
-  getStorageOptions,
-  // Price Ranges
   getPriceRanges,
   // Order Statuses
   createOrderStatus,
@@ -708,6 +1075,8 @@ module.exports = {
   createPaymentStatus,
   updatePaymentStatus,
   deletePaymentStatus,
-  // Data Cleanup
+  // System
+  getSystemSettings,
+  updateSystemSettings,
   cleanupOldData,
 };

@@ -15,7 +15,8 @@ const deviceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: ['smartphone', 'tablet', 'laptop', 'smartwatch', 'gaming', 'other'],
+    lowercase: true,
+    trim: true,
   },
   image: {
     type: String,

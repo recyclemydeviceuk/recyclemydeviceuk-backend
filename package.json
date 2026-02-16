@@ -6,6 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "seed": "node src/seeders/enhancedMasterSeeder.js",
+    "seed:all": "node src/seeders/enhancedMasterSeeder.js",
+    "seed:recyclers": "node src/seeders/enhancedRecyclerSeeder.js",
+    "seed:devices": "node src/seeders/enhancedDeviceSeeder.js",
+    "seed:pricing": "node src/seeders/enhancedPricingSeeder.js",
+    "cleanup": "node src/scripts/cleanup.js",
+    "reset-db": "npm run cleanup && npm run seed:all",
     "seed:faqs": "node src/scripts/seedFAQs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
