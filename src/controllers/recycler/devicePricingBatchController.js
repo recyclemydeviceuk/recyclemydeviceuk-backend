@@ -181,7 +181,7 @@ const getConfiguration = async (req, res) => {
 
     // Get preferences
     let preferences = await RecyclerPreferences.findOne({ recyclerId })
-      .populate('selectedDevices', 'name brand image storageOptions');
+      .populate('selectedDevices', 'name brand image storageOptions conditionOptions');
 
     if (!preferences) {
       preferences = await RecyclerPreferences.create({
@@ -205,30 +205,82 @@ const getConfiguration = async (req, res) => {
 
     // Get all pricing for this recycler
     const allPricing = await RecyclerDevicePricing.find({ recyclerId })
-      .populate('deviceId', 'name brand image storageOptions');
+      .populate('deviceId', 'name brand image storageOptions conditionOptions');
 
-    // Transform pricing to frontend format
+    // Transform pricing to frontend format with sync to current device options
     const pricingByDevice = {};
     
-    allPricing.forEach(pricing => {
+    for (const pricing of allPricing) {
       const deviceId = pricing.deviceId._id.toString();
-      const pricingArray = [];
-
+      const device = pricing.deviceId;
+      
+      // Get current device options
+      const currentStorageOptions = device.storageOptions || [];
+      const currentConditionOptions = device.conditionOptions || [];
+      
+      // Build a map of existing pricing for quick lookup
+      const existingPricingMap = {};
       pricing.storagePricing.forEach(sp => {
         const conditions = sp.conditions instanceof Map ? 
           Object.fromEntries(sp.conditions) : sp.conditions;
         
-        Object.keys(conditions).forEach(condition => {
-          pricingArray.push({
-            condition,
-            storage: sp.storage,
-            price: conditions[condition],
+        Object.keys(conditions).forEach(conditionKey => {
+          const key = `${sp.storage.toLowerCase()}-${conditionKey.toLowerCase()}`;
+          existingPricingMap[key] = conditions[conditionKey];
+        });
+      });
+      
+      // Build synced pricing array
+      const syncedPricingArray = [];
+      
+      // For each current storage option
+      currentStorageOptions.forEach(storage => {
+        // For each current condition option
+        currentConditionOptions.forEach(condition => {
+          const conditionKey = condition.toLowerCase();
+          const lookupKey = `${storage.toLowerCase()}-${conditionKey}`;
+          
+          // Check if we have existing pricing for this combination
+          const existingPrice = existingPricingMap[lookupKey];
+          
+          syncedPricingArray.push({
+            condition: condition,
+            storage: storage,
+            price: existingPrice !== undefined ? existingPrice : 0,
           });
         });
       });
-
-      pricingByDevice[deviceId] = pricingArray;
-    });
+      
+      pricingByDevice[deviceId] = syncedPricingArray;
+      
+      // If device options changed, update the stored pricing in background
+      const hasChanges = syncedPricingArray.length !== (pricing.storagePricing || []).reduce(
+        (acc, sp) => acc + (sp.conditions ? Object.keys(sp.conditions).length : 0), 0
+      );
+      
+      if (hasChanges) {
+        // Transform synced pricing back to storage format and save
+        const newStoragePricingMap = {};
+        syncedPricingArray.forEach(item => {
+          if (!newStoragePricingMap[item.storage]) {
+            newStoragePricingMap[item.storage] = {};
+          }
+          newStoragePricingMap[item.storage][item.condition.toLowerCase()] = item.price;
+        });
+        
+        const newStoragePricing = Object.keys(newStoragePricingMap).map(storage => ({
+          storage,
+          conditions: newStoragePricingMap[storage],
+        }));
+        
+        // Update in background (don't await to keep response fast)
+        RecyclerDevicePricing.findOneAndUpdate(
+          { recyclerId, deviceId },
+          { storagePricing: newStoragePricing },
+          { new: true }
+        ).exec().catch(err => console.error('Background pricing sync error:', err));
+      }
+    }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,

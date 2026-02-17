@@ -37,12 +37,25 @@ const getAllOrders = async (req, res) => {
       };
     }
 
+    const CounterOffer = require('../../models/CounterOffer');
+
     const orders = await Order.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate('recyclerId', 'companyName email')
       .populate('deviceId', 'name');
+
+    // Populate counter offers for each order
+    for (let order of orders) {
+      const counterOffer = await CounterOffer.findOne({ orderId: order._id })
+        .sort({ createdAt: -1 })
+        .select('status amendedPrice originalPrice createdAt respondedAt');
+      
+      if (counterOffer) {
+        order._doc.counterOffer = counterOffer;
+      }
+    }
 
     const total = await Order.countDocuments(filter);
 
@@ -156,9 +169,15 @@ const updateOrderStatus = async (req, res) => {
       notes,
     });
 
-    // Set completedAt timestamp when order is completed
-    if (status === 'completed' && previousStatus !== 'completed') {
+    // Automatically set payment status based on order status
+    // If order is completed, payment status becomes 'paid'
+    // For all other statuses, payment status is 'pending'
+    if (status === 'completed') {
+      order.paymentStatus = 'paid';
+      order.paidAt = new Date();
       order.completedAt = new Date();
+    } else {
+      order.paymentStatus = 'pending';
     }
 
     await order.save();

@@ -1,5 +1,6 @@
 // AWS S3 storage service
 const { s3 } = require('../../config/aws');
+const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const logger = require('../../utils/logger');
 const path = require('path');
 
@@ -20,22 +21,26 @@ const uploadFile = async (file, folder = 'uploads') => {
       Key: key,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: 'public-read',
+      // ACL removed - bucket uses bucket policy for public access
     };
 
-    const result = await s3.upload(params).promise();
+    await s3.send(new PutObjectCommand(params));
+
+    // Construct the public URL
+    const region = process.env.AWS_S3_REGION || process.env.AWS_REGION || 'ap-south-1';
+    const url = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
 
     logger.info('File uploaded to S3', {
-      key: result.Key,
+      key: key,
       size: file.size,
       mimetype: file.mimetype,
     });
 
     return {
       success: true,
-      url: result.Location,
-      key: result.Key,
-      bucket: result.Bucket,
+      url: url,
+      key: key,
+      bucket: process.env.AWS_S3_BUCKET_NAME,
       size: file.size,
       mimetype: file.mimetype,
     };
@@ -83,7 +88,7 @@ const deleteFile = async (key) => {
       Key: key,
     };
 
-    await s3.deleteObject(params).promise();
+    await s3.send(new DeleteObjectCommand(params));
 
     logger.info('File deleted from S3', { key });
 

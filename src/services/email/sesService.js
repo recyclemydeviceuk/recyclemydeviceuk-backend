@@ -1,5 +1,6 @@
 // AWS SES email service
 const { ses, sesEmailConfig } = require('../../config/aws');
+const { SendEmailCommand, SendRawEmailCommand } = require('@aws-sdk/client-ses');
 const logger = require('../../utils/logger');
 
 // Email templates
@@ -16,9 +17,15 @@ const templates = {
 /**
  * Send email via AWS SES
  * @param {object} options - Email options
+ * @param {Array} options.attachments - Optional attachments [{filename, content}]
  * @returns {Promise<object>} - Send result
  */
-const sendEmail = async ({ to, subject, html, text, replyTo }) => {
+const sendEmail = async ({ to, subject, html, text, replyTo, attachments }) => {
+  // If attachments exist, use sendRawEmail with MIME format
+  if (attachments && attachments.length > 0) {
+    return sendEmailWithAttachments({ to, subject, html, text, replyTo, attachments });
+  }
+
   const params = {
     Source: sesEmailConfig.fromEmail,
     Destination: {
@@ -47,7 +54,8 @@ const sendEmail = async ({ to, subject, html, text, replyTo }) => {
   }
 
   try {
-    const result = await ses.sendEmail(params).promise();
+    const command = new SendEmailCommand(params);
+    const result = await ses.send(command);
     logger.logEmail('sent', to, { subject, messageId: result.MessageId });
     
     return {
@@ -57,6 +65,88 @@ const sendEmail = async ({ to, subject, html, text, replyTo }) => {
   } catch (error) {
     logger.logError(error, { context: 'SES sendEmail', to, subject });
     throw new Error(`Failed to send email: ${error.message}`);
+  }
+};
+
+/**
+ * Send email with attachments using sendRawEmail (MIME format)
+ * @param {object} options - Email options
+ * @returns {Promise<object>} - Send result
+ */
+const sendEmailWithAttachments = async ({ to, subject, html, text, replyTo, attachments }) => {
+  const toAddresses = Array.isArray(to) ? to : [to];
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  
+  // Build email headers
+  let rawMessage = '';
+  rawMessage += `From: ${sesEmailConfig.fromEmail}\r\n`;
+  rawMessage += `To: ${toAddresses.join(', ')}\r\n`;
+  rawMessage += `Subject: ${subject}\r\n`;
+  if (replyTo) {
+    rawMessage += `Reply-To: ${Array.isArray(replyTo) ? replyTo.join(', ') : replyTo}\r\n`;
+  }
+  rawMessage += 'MIME-Version: 1.0\r\n';
+  rawMessage += `Content-Type: multipart/mixed; boundary="${boundary}"\r\n`;
+  rawMessage += '\r\n';
+  
+  // Add multipart/alternative section for text and HTML
+  rawMessage += `--${boundary}\r\n`;
+  rawMessage += `Content-Type: multipart/alternative; boundary="${altBoundary}"\r\n`;
+  rawMessage += '\r\n';
+  
+  // Plain text part
+  rawMessage += `--${altBoundary}\r\n`;
+  rawMessage += 'Content-Type: text/plain; charset=UTF-8\r\n';
+  rawMessage += 'Content-Transfer-Encoding: 7bit\r\n';
+  rawMessage += '\r\n';
+  rawMessage += text || html.replace(/<[^>]*>/g, '');
+  rawMessage += '\r\n';
+  
+  // HTML part
+  rawMessage += `--${altBoundary}\r\n`;
+  rawMessage += 'Content-Type: text/html; charset=UTF-8\r\n';
+  rawMessage += 'Content-Transfer-Encoding: 7bit\r\n';
+  rawMessage += '\r\n';
+  rawMessage += html;
+  rawMessage += '\r\n';
+  
+  // Close alternative boundary
+  rawMessage += `--${altBoundary}--\r\n`;
+
+  // Add attachments
+  for (const attachment of attachments) {
+    const base64Content = attachment.content.toString('base64');
+    rawMessage += `--${boundary}\r\n`;
+    rawMessage += `Content-Type: ${attachment.contentType || 'application/pdf'}; name="${attachment.filename}"\r\n`;
+    rawMessage += 'Content-Transfer-Encoding: base64\r\n';
+    rawMessage += `Content-Disposition: attachment; filename="${attachment.filename}"\r\n`;
+    rawMessage += '\r\n';
+    rawMessage += base64Content;
+    rawMessage += '\r\n';
+  }
+
+  // Close main boundary
+  rawMessage += `--${boundary}--`;
+
+  const params = {
+    RawMessage: {
+      Data: Buffer.from(rawMessage),
+    },
+  };
+
+  try {
+    const command = new SendRawEmailCommand(params);
+    const result = await ses.send(command);
+    logger.logEmail('sent', to, { subject, messageId: result.MessageId, attachmentsCount: attachments.length });
+    
+    return {
+      success: true,
+      messageId: result.MessageId,
+    };
+  } catch (error) {
+    logger.logError(error, { context: 'SES sendRawEmail', to, subject });
+    throw new Error(`Failed to send email with attachments: ${error.message}`);
   }
 };
 

@@ -5,22 +5,28 @@ const Order = require('./src/models/Order');
 const Device = require('./src/models/Device');
 const Recycler = require('./src/models/Recycler');
 
+// Get email from command line arguments or use default
+const targetEmail = process.argv[2] || 'aiagents22@gmail.com';
+
 const seedOrders = async () => {
   try {
     // Connect to database
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/recyclemydevice');
     console.log('MongoDB Connected');
 
-    // Get the logged-in recycler (from your session)
-    const recyclerId = '69925a1101ae790b3eba0498';
+    // Find recycler by email
+    const recycler = await Recycler.findOne({ email: targetEmail.toLowerCase() });
     
-    // Verify recycler exists
-    const recycler = await Recycler.findById(recyclerId);
     if (!recycler) {
-      console.log('❌ Recycler not found with ID:', recyclerId);
+      console.log('❌ Recycler not found with email:', targetEmail);
+      console.log('Usage: node seedRecyclerOrders.js [email]');
       process.exit(1);
     }
+    
+    const recyclerId = recycler._id.toString();
     console.log('✓ Found recycler:', recycler.companyName);
+    console.log('✓ Recycler ID:', recyclerId);
+    console.log('✓ Partner ID: RP-' + recyclerId.slice(-4));
 
     // Get some devices
     const devices = await Device.find().limit(5);

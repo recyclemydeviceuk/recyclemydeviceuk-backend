@@ -41,6 +41,9 @@ const recyclerPreferencesRoutes = require('./recycler/preferences');
 const recyclerProfileRoutes = require('./recycler/profile');
 const recyclerReviewRoutes = require('./recycler/reviews');
 
+// Import counter offer routes
+const counterOfferRoutes = require('./counterOffer');
+
 // Authentication routes
 router.use('/auth/admin', adminAuthRoutes);
 router.use('/auth/recycler', recyclerAuthRoutes);
@@ -78,6 +81,9 @@ router.use('/recycler/pricing', recyclerPricingRoutes);
 router.use('/recycler/preferences', recyclerPreferencesRoutes);
 router.use('/recycler/profile', recyclerProfileRoutes);
 router.use('/recycler/reviews', recyclerReviewRoutes);
+
+// Counter offer routes (mixed - public and protected)
+router.use('/counter-offers', counterOfferRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {

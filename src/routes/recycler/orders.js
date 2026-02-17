@@ -5,13 +5,13 @@ const {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
-  updatePaymentStatus,
   addOrderNote,
   getOrdersByStatus,
   getOrderStats,
   exportOrders,
   getOrderStatuses,
   getPaymentStatuses,
+  bulkUpdateOrders,
 } = require('../../controllers/recycler/orderController');
 const { protect, recyclerOnly } = require('../../middlewares/authMiddleware');
 
@@ -26,10 +26,10 @@ router.get('/utilities/payment-statuses', getPaymentStatuses);
 router.get('/', getAllOrders);
 router.get('/stats', getOrderStats);
 router.get('/export', exportOrders);
+router.post('/bulk-update', bulkUpdateOrders);
 router.get('/status/:status', getOrdersByStatus);
 router.get('/:id', getOrderById);
 router.patch('/:id/status', updateOrderStatus);
-router.patch('/:id/payment-status', updatePaymentStatus);
 router.post('/:id/notes', addOrderNote);
 
 module.exports = router;

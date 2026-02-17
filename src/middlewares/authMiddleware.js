@@ -61,8 +61,21 @@ const recyclerOnly = async (req, res, next) => {
   }
 };
 
+// Admin or Recycler middleware
+const adminOrRecyclerOnly = async (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'super_admin' || req.user.role === 'recycler')) {
+    next();
+  } else {
+    return res.status(HTTP_STATUS.FORBIDDEN).json({
+      success: false,
+      message: 'Access denied. Admin or Recycler only.',
+    });
+  }
+};
+
 module.exports = {
   protect,
   adminOnly,
   recyclerOnly,
+  adminOrRecyclerOnly,
 };

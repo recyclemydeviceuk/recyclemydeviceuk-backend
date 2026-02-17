@@ -194,7 +194,7 @@ const getRecyclerMetrics = async (req, res) => {
           status: recycler.status === 'approved' ? 'active' : 'inactive',
           totalCustomers: uniqueCustomers.size,
           totalDevicesPurchased: orders.length,
-          totalSpent: Math.floor(totalRevenue),
+          totalPayout: Math.floor(totalRevenue),
           averageDevicePrice: Math.floor(avgDevicePrice),
           lastPurchaseDate: lastOrder ? lastOrder.createdAt : null,
           growthRate: Math.round(growthRate * 10) / 10,
@@ -225,7 +225,7 @@ const getRecyclerMetrics = async (req, res) => {
     const paginatedMetrics = filteredMetrics.slice(skip, skip + limit);
 
     // Calculate overall stats (from all metrics, not just current page)
-    const totalRevenue = filteredMetrics.reduce((sum, r) => sum + r.totalSpent, 0);
+    const totalRevenue = filteredMetrics.reduce((sum, r) => sum + r.totalPayout, 0);
     const totalOrders = filteredMetrics.reduce((sum, r) => sum + r.totalDevicesPurchased, 0);
     const totalCustomers = filteredMetrics.reduce((sum, r) => sum + r.totalCustomers, 0);
     const avgRating = filteredMetrics.length > 0 

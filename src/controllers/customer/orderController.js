@@ -1,8 +1,9 @@
 // Guest order placement (no authentication required)
 // Customers fill checkout form and place orders anonymously
 const { HTTP_STATUS } = require('../../config/constants');
-const { sendEmail } = require('../../config/aws');
+const { sendEmail } = require('../../services/email/sesService');
 const { generateOrderNumber } = require('../../utils/generateOTP');
+const { generateInvoicePDF } = require('../../utils/pdfGenerator');
 
 // @desc    Create order (guest/anonymous)
 // @route   POST /api/customer/orders
@@ -93,12 +94,37 @@ const createOrder = async (req, res) => {
       paymentStatus: 'pending',
     });
 
-    // Send order confirmation email to customer
+    // Generate PDF invoice
+    let pdfBuffer;
     try {
-      await sendEmail({
+      pdfBuffer = await generateInvoicePDF({
+        orderNumber,
+        customerName,
+        customerEmail,
+        customerPhone,
+        address,
+        city,
+        postcode,
+        deviceName: device.name,
+        deviceCondition,
+        storage,
+        amount,
+        status: 'pending',
+        paymentStatus: 'pending',
+        createdAt: order.createdAt,
+      });
+      console.log('PDF invoice generated successfully');
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError);
+      // Continue without PDF if generation fails
+    }
+
+    // Send order confirmation email to customer with PDF attachment
+    try {
+      const emailOptions = {
         to: customerEmail,
         subject: 'Thank You for Your Order! - Recycle My Device',
-        htmlBody: `
+        html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 0;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 40px 20px; text-align: center;">
@@ -140,6 +166,15 @@ const createOrder = async (req, res) => {
                   </tr>
                 </table>
               </div>
+
+              <!-- Invoice Attachment Notice -->
+              ${pdfBuffer ? `
+              <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                <p style="color: #166534; font-size: 14px; margin: 0;">
+                  📄 <strong>Invoice Attached:</strong> Your order invoice has been attached to this email for your records.
+                </p>
+              </div>
+              ` : ''}
 
               <!-- What's Next Section -->
               <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0;">
@@ -184,8 +219,19 @@ const createOrder = async (req, res) => {
             </div>
           </div>
         `,
-      });
-      console.log(`Order confirmation email sent to ${customerEmail}`);
+      };
+
+      // Attach PDF invoice if generated successfully
+      if (pdfBuffer) {
+        emailOptions.attachments = [{
+          filename: `Invoice-${orderNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        }];
+      }
+
+      await sendEmail(emailOptions);
+      console.log(`Order confirmation email${pdfBuffer ? ' with PDF invoice' : ''} sent to ${customerEmail}`);
     } catch (emailError) {
       console.error('Order confirmation email failed:', emailError);
     }

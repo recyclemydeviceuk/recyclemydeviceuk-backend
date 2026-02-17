@@ -52,6 +52,8 @@ const getAllOrders = async (req, res) => {
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
 
+    const CounterOffer = require('../../models/CounterOffer');
+
     const [orders, total] = await Promise.all([
       Order.find(filter)
         .sort({ createdAt: -1 })
@@ -60,6 +62,17 @@ const getAllOrders = async (req, res) => {
         .populate('deviceId', 'name brand model image'),
       Order.countDocuments(filter),
     ]);
+
+    // Populate counter offers for each order
+    for (let order of orders) {
+      const counterOffer = await CounterOffer.findOne({ orderId: order._id })
+        .sort({ createdAt: -1 })
+        .select('status amendedPrice originalPrice reason createdAt respondedAt');
+      
+      if (counterOffer) {
+        order._doc.counterOffer = counterOffer;
+      }
+    }
 
     console.log('Filter being used:', filter);
     console.log('Total orders found:', total);
@@ -152,9 +165,15 @@ const updateOrderStatus = async (req, res) => {
     order.status = status;
     if (notes) order.statusNotes = notes;
 
-    // Set completion timestamp
-    if (status === 'completed' && !order.completedAt) {
+    // Automatically set payment status based on order status
+    // If order is completed, payment status becomes 'paid'
+    // For all other statuses, payment status is 'pending'
+    if (status === 'completed') {
+      order.paymentStatus = 'paid';
+      order.paidAt = new Date();
       order.completedAt = new Date();
+    } else {
+      order.paymentStatus = 'pending';
     }
 
     await order.save();
@@ -735,6 +754,64 @@ const getPaymentStatuses = async (req, res) => {
   }
 };
 
+// @desc    Bulk update order status for recycler
+// @route   POST /api/recycler/orders/bulk-update
+// @access  Private/Recycler
+const bulkUpdateOrders = async (req, res) => {
+  try {
+    const Order = require('../../models/Order');
+    const mongoose = require('mongoose');
+    const { orderIds, status } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Order IDs are required',
+      });
+    }
+
+    if (!status) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Status is required',
+      });
+    }
+
+    // Get recycler ID from token
+    const recyclerIdString = req.user.id || req.user._id;
+    let recyclerId;
+    try {
+      recyclerId = mongoose.Types.ObjectId.isValid(recyclerIdString) 
+        ? new mongoose.Types.ObjectId(recyclerIdString)
+        : recyclerIdString;
+    } catch (err) {
+      recyclerId = recyclerIdString;
+    }
+
+    // Only update orders belonging to this recycler
+    const result = await Order.updateMany(
+      { 
+        _id: { $in: orderIds },
+        recyclerId: recyclerId 
+      },
+      { $set: { status } }
+    );
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: `${result.modifiedCount} orders updated successfully`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error('Bulk Update Orders Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to update orders',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllOrders,
   getOrderById,
@@ -746,4 +823,5 @@ module.exports = {
   exportOrders,
   getOrderStatuses,
   getPaymentStatuses,
+  bulkUpdateOrders,
 };
