@@ -16,7 +16,7 @@ module.exports = (data) => {
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-    <h1 style="margin: 0;">Order Confirmed! 🎉</h1>
+    <h1 style="margin: 0;">Payment Received!</h1>
     <p style="margin: 10px 0 0 0; font-size: 18px;">Thank you for choosing ${APP_CONFIG.NAME}</p>
   </div>
   

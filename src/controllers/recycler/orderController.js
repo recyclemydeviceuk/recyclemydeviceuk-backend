@@ -237,24 +237,24 @@ const updateOrderStatus = async (req, res) => {
             </div>
           `,
         });
-        console.log(`✅ Order status email sent successfully to ${order.customerEmail}`);
+        console.log(`Order status email sent successfully to ${order.customerEmail}`);
       } catch (emailError) {
-        console.error('❌ Email sending failed:', emailError);
+        console.error('Email sending failed:', emailError);
       }
     } else {
-      console.log('⚠️ No customer email found for order:', order.orderNumber);
+      console.log('No customer email found for order:', order.orderNumber);
     }
 
     // Send review request email if order is completed AND paid
     if (status === 'completed' && order.paymentStatus === 'paid' && order.customerEmail) {
       try {
-        console.log(`📧 Sending review request email to: ${order.customerEmail}`);
+        console.log(`Sending review request email to: ${order.customerEmail}`);
         
         const reviewLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/review?order=${order.orderNumber}&email=${order.customerEmail}`;
         
         await sendEmail({
           to: order.customerEmail,
-          subject: '⭐ Share Your Experience - Recycle My Device',
+          subject: 'Share Your Experience - Recycle My Device',
           htmlBody: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 30px;">
@@ -276,7 +276,7 @@ const updateOrderStatus = async (req, res) => {
               
               <div style="text-align: center; margin: 40px 0;">
                 <a href="${reviewLink}" style="display: inline-block; background: #1b981b; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(27, 152, 27, 0.3);">
-                  ⭐ Leave a Review
+                  Leave a Review
                 </a>
               </div>
               
@@ -298,9 +298,9 @@ const updateOrderStatus = async (req, res) => {
             </div>
           `,
         });
-        console.log(`✅ Review request email sent successfully to ${order.customerEmail}`);
+        console.log(`Review request email sent successfully to ${order.customerEmail}`);
       } catch (emailError) {
-        console.error('❌ Review request email sending failed:', emailError);
+        console.error('Review request email sending failed:', emailError);
       }
     }
 
@@ -381,7 +381,7 @@ const updatePaymentStatus = async (req, res) => {
             `;
             break;
           case 'paid':
-            emailSubject = '✅ Payment Completed - Recycle My Device';
+            emailSubject = 'Payment Completed - Recycle My Device';
             emailMessage = `
               <p>Great news! The payment for your order <strong>#${order.orderNumber}</strong> has been completed.</p>
               <p>Amount Paid: <strong>£${order.amount}</strong></p>
@@ -448,24 +448,24 @@ const updatePaymentStatus = async (req, res) => {
           `,
         });
         
-        console.log(`✅ Payment status email sent successfully to ${order.customerEmail}`);
+        console.log(`Payment status email sent successfully to ${order.customerEmail}`);
       } catch (emailError) {
-        console.error('❌ Payment email sending failed:', emailError);
+        console.error('Payment email sending failed:', emailError);
       }
     } else {
-      console.log('⚠️ No customer email found for order:', order.orderNumber);
+      console.log('No customer email found for order:', order.orderNumber);
     }
 
     // Send review request email if payment is paid AND order is completed
     if (paymentStatus === 'paid' && order.status === 'completed' && order.customerEmail) {
       try {
-        console.log(`📧 Sending review request email to: ${order.customerEmail}`);
+        console.log(`Sending review request email to: ${order.customerEmail}`);
         
         const reviewLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/review?order=${order.orderNumber}&email=${order.customerEmail}`;
         
         await sendEmail({
           to: order.customerEmail,
-          subject: '⭐ Share Your Experience - Recycle My Device',
+          subject: 'Share Your Experience - Recycle My Device',
           htmlBody: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 30px;">
@@ -487,7 +487,7 @@ const updatePaymentStatus = async (req, res) => {
               
               <div style="text-align: center; margin: 40px 0;">
                 <a href="${reviewLink}" style="display: inline-block; background: #1b981b; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(27, 152, 27, 0.3);">
-                  ⭐ Leave a Review
+                  Leave a Review
                 </a>
               </div>
               
@@ -510,9 +510,9 @@ const updatePaymentStatus = async (req, res) => {
           `,
         });
         
-        console.log(`✅ Review request email sent successfully to ${order.customerEmail}`);
+        console.log(`Review request email sent successfully to ${order.customerEmail}`);
       } catch (emailError) {
-        console.error('❌ Review request email sending failed:', emailError);
+        console.error('Review request email sending failed:', emailError);
       }
     }
 

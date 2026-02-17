@@ -100,7 +100,7 @@ const createCounterOffer = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 0;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">💰 Counter Offer Received</h1>
+              <h1 style="color: white; margin: 0; font-size: 28px;">£ Counter Offer Received</h1>
               <p style="color: #fef3c7; margin: 10px 0 0 0; font-size: 15px;">We have a revised offer for your device</p>
             </div>
 
@@ -114,13 +114,13 @@ const createCounterOffer = async (req, res) => {
 
               <!-- TOP CTA BUTTON -->
               <div style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
-                <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">⏰ Action Required - Review Within 7 Days</h3>
+                <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">Action Required - Review Within 7 Days</h3>
                 <p style="color: #dcfce7; font-size: 15px; margin-bottom: 20px;">
                   Please review and respond to this offer to proceed with your order.
                 </p>
                 <a href="${counterOfferUrl}" 
                    style="display: inline-block; background: white; color: #16a34a; padding: 16px 40px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); margin-bottom: 10px;">
-                  ✓ Review Counter Offer
+                  Review Counter Offer
                 </a>
                 <p style="color: #dcfce7; font-size: 13px; margin-top: 15px;">
                   Click above to accept or decline this offer on the review page
@@ -144,13 +144,13 @@ const createCounterOffer = async (req, res) => {
 
               <!-- Reason -->
               <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #374151; font-size: 16px; margin: 0 0 10px 0;">📝 Reason for Adjustment:</h3>
+                <h3 style="color: #374151; font-size: 16px; margin: 0 0 10px 0;">Reason for Adjustment:</h3>
                 <p style="color: #6b7280; margin: 0; line-height: 1.6;">${reason}</p>
               </div>
 
               ${images && images.length > 0 ? `
               <div style="margin: 20px 0;">
-                <h3 style="color: #374151; font-size: 16px; margin: 0 0 15px 0;">📸 Device Images:</h3>
+                <h3 style="color: #374151; font-size: 16px; margin: 0 0 15px 0;">Device Images:</h3>
                 <p style="color: #6b7280; font-size: 14px; margin-bottom: 15px;">We've attached images of your device for your reference.</p>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
                   ${images.map(img => `
@@ -279,11 +279,11 @@ const acceptCounterOffer = async (req, res) => {
     counterOffer.customerNotes = customerNotes;
     await counterOffer.save();
 
-    // Update order with new price and status
+    // Update order with new price (keep status unchanged)
     const order = await Order.findById(counterOffer.orderId);
     if (order) {
       order.amount = counterOffer.amendedPrice;
-      order.status = 'confirmed'; // Move to confirmed after acceptance
+      // Note: Order status is NOT changed - recycler manages status separately
       await order.save();
     }
 
@@ -295,7 +295,7 @@ const acceptCounterOffer = async (req, res) => {
         htmlBody: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #16a34a; margin: 0;">✓ Counter Offer Accepted!</h1>
+              <h1 style="color: #16a34a; margin: 0;">Counter Offer Accepted!</h1>
               <p style="color: #666; margin: 5px 0;">Thank you for your response</p>
             </div>
             
@@ -307,7 +307,7 @@ const acceptCounterOffer = async (req, res) => {
             </div>
             
             <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #374151; margin: 0 0 15px 0;">📋 Next Steps:</h3>
+              <h3 style="color: #374151; margin: 0 0 15px 0;">Next Steps:</h3>
               <ul style="color: #6b7280; line-height: 1.8;">
                 <li>We will process your order with the new agreed price</li>
                 <li>You'll receive payment confirmation once the order is completed</li>
@@ -339,7 +339,7 @@ const acceptCounterOffer = async (req, res) => {
           htmlBody: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #16a34a; margin: 0;">✓ Counter Offer Accepted!</h1>
+                <h1 style="color: #16a34a; margin: 0;">Counter Offer Accepted!</h1>
                 <p style="color: #666; margin: 5px 0;">Customer has accepted your offer</p>
               </div>
               
@@ -351,7 +351,7 @@ const acceptCounterOffer = async (req, res) => {
               </div>
               
               <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #374151; margin: 0 0 15px 0;">📋 Order Details:</h3>
+                <h3 style="color: #374151; margin: 0 0 15px 0;">Order Details:</h3>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Order Number:</strong> ${counterOffer.orderNumber}</p>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Customer:</strong> ${counterOffer.customerName}</p>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Customer Email:</strong> ${counterOffer.customerEmail}</p>
@@ -361,7 +361,7 @@ const acceptCounterOffer = async (req, res) => {
               <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="color: #1e40af; margin: 0 0 10px 0;">Next Steps:</h3>
                 <p style="color: #1e3a8a; margin: 0;">
-                  Please proceed with collecting the device and processing the order. The order status has been updated to "confirmed".
+                  Please proceed with processing the order at the agreed price. You can manage the order status from your dashboard.
                 </p>
               </div>
               
@@ -424,13 +424,8 @@ const declineCounterOffer = async (req, res) => {
     counterOffer.customerNotes = customerNotes;
     await counterOffer.save();
 
-    // Update order status
-    const order = await Order.findById(counterOffer.orderId);
-    if (order) {
-      order.status = 'cancelled'; // Cancel order if counter offer declined
-      order.cancellationReason = 'Customer declined counter offer';
-      await order.save();
-    }
+    // Note: Order status is NOT changed when counter offer is declined
+    // Recycler will manage the order status separately
 
     // Send confirmation email to customer
     try {
@@ -452,7 +447,7 @@ const declineCounterOffer = async (req, res) => {
             
             <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p style="color: #6b7280; margin: 0;">
-                Your order has been cancelled as per your decision. We appreciate you considering our offer.
+                We've recorded your decision. Our team will review your order and contact you if needed. We appreciate you considering our offer.
               </p>
               ${customerNotes ? `
               <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
@@ -505,7 +500,7 @@ const declineCounterOffer = async (req, res) => {
               </div>
               
               <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #374151; margin: 0 0 15px 0;">📋 Order Details:</h3>
+                <h3 style="color: #374151; margin: 0 0 15px 0;">Order Details:</h3>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Order Number:</strong> ${counterOffer.orderNumber}</p>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Customer:</strong> ${counterOffer.customerName}</p>
                 <p style="color: #6b7280; margin: 5px 0;"><strong>Customer Email:</strong> ${counterOffer.customerEmail}</p>
@@ -519,9 +514,9 @@ const declineCounterOffer = async (req, res) => {
               </div>
 
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #374151; margin: 0 0 10px 0;">Status Update:</h3>
+                <h3 style="color: #374151; margin: 0 0 10px 0;">Next Steps:</h3>
                 <p style="color: #6b7280; margin: 0;">
-                  The order has been cancelled. No further action is required for this order.
+                  The counter offer has been declined. Please manage the order status and next steps from your dashboard.
                 </p>
               </div>
               

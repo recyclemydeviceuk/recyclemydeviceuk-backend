@@ -64,7 +64,7 @@ const getDashboardStats = async (req, res) => {
 
     // Pending recyclers - check all recyclers first for debugging
     const allRecyclers = await Recycler.find({}, 'status companyName');
-    console.log('📊 Dashboard Stats Debug:');
+    console.log('Dashboard Stats Debug:');
     console.log('Total Recyclers:', totalRecyclers);
     console.log('All Recyclers with status:', allRecyclers.map(r => ({ name: r.companyName, status: r.status })));
     

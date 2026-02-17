@@ -128,7 +128,7 @@ const createOrder = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 0;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 32px;">Thank You! 🎉</h1>
+              <h1 style="color: white; margin: 0; font-size: 32px;">Thank You!</h1>
               <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">Your order has been received</p>
             </div>
 
@@ -142,7 +142,7 @@ const createOrder = async (req, res) => {
 
               <!-- Order Summary Box -->
               <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 4px solid #1e3a8a; padding: 25px; margin: 25px 0; border-radius: 8px;">
-                <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">📦 Order Details</h3>
+                <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">Order Details</h3>
                 <table style="width: 100%; border-collapse: collapse;">
                   <tr>
                     <td style="padding: 8px 0; color: #374151; font-weight: bold;">Order Number:</td>
@@ -171,14 +171,14 @@ const createOrder = async (req, res) => {
               ${pdfBuffer ? `
               <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 8px;">
                 <p style="color: #166534; font-size: 14px; margin: 0;">
-                  📄 <strong>Invoice Attached:</strong> Your order invoice has been attached to this email for your records.
+                  <strong>Invoice Attached:</strong> Your order invoice has been attached to this email for your records.
                 </p>
               </div>
               ` : ''}
 
               <!-- What's Next Section -->
               <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0;">
-                <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">📋 What Happens Next?</h3>
+                <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">What Happens Next?</h3>
                 <div style="margin-bottom: 15px;">
                   <div style="display: inline-block; width: 30px; height: 30px; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; border-radius: 50%; text-align: center; line-height: 30px; font-weight: bold; margin-right: 10px;">1</div>
                   <span style="color: #374151; font-size: 15px;">You'll receive a shipping label via email shortly</span>
@@ -192,7 +192,7 @@ const createOrder = async (req, res) => {
                   <span style="color: #374151; font-size: 15px;">Ship your device using the provided label</span>
                 </div>
                 <div>
-                  <div style="display: inline-block; width: 30px; height: 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border-radius: 50%; text-align: center; line-height: 30px; font-weight: bold; margin-right: 10px;">✓</div>
+                  <div style="display: inline-block; width: 30px; height: 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border-radius: 50%; text-align: center; line-height: 30px; font-weight: bold; margin-right: 10px;">4</div>
                   <span style="color: #374151; font-size: 15px;">Once received and verified, payment will be processed</span>
                 </div>
               </div>

@@ -197,7 +197,7 @@ const updateOrderStatus = async (req, res) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 0;">
               <!-- Header -->
               <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 32px;">🎉 Order Completed!</h1>
+                <h1 style="color: white; margin: 0; font-size: 32px;">Order Completed!</h1>
                 <p style="color: #d1fae5; margin: 10px 0 0 0; font-size: 16px;">Your payment is being processed</p>
               </div>
 
@@ -211,14 +211,14 @@ const updateOrderStatus = async (req, res) => {
 
                 <!-- Success Box -->
                 <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
+                  <div style="font-size: 48px; margin-bottom: 15px;">*</div>
                   <h3 style="color: #166534; margin: 0 0 10px 0; font-size: 20px;">Payment Processing</h3>
                   <p style="margin: 0; color: #166534; font-size: 14px;">Your payment of <strong style="font-size: 24px; display: block; margin: 10px 0;">£${Math.round(order.amount)}</strong> will be transferred to your account shortly</p>
                 </div>
 
                 <!-- Order Summary -->
                 <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0;">
-                  <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 18px;">📋 Order Summary</h3>
+                  <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 18px;">Order Summary</h3>
                   <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                       <td style="padding: 8px 0; color: #6b7280;">Order Number:</td>
@@ -239,17 +239,17 @@ const updateOrderStatus = async (req, res) => {
 
                 <!-- What's Next -->
                 <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 25px; border-radius: 8px; margin: 25px 0;">
-                  <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">💰 What Happens Next?</h3>
+                  <h3 style="color: #1e3a8a; margin: 0 0 15px 0; font-size: 18px;">£ What Happens Next?</h3>
                   <p style="color: #374151; margin: 0; line-height: 1.8;">
-                    ✓ Your payment is being processed<br>
-                    ✓ Funds will be transferred within 3-5 business days<br>
-                    ✓ You'll receive a confirmation once payment is sent
+                    - Your payment is being processed<br>
+                    - Funds will be transferred within 3-5 business days<br>
+                    - You'll receive a confirmation once payment is sent
                   </p>
                 </div>
 
                 <!-- Thank You -->
                 <div style="text-align: center; margin: 30px 0;">
-                  <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 20px;">Thank You for Recycling! ♻️</h3>
+                  <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 20px;">Thank You for Recycling!</h3>
                   <p style="color: #6b7280; font-size: 15px; margin: 0;">
                     You've made a positive impact on the environment by choosing to recycle responsibly.
                   </p>
@@ -285,7 +285,7 @@ const updateOrderStatus = async (req, res) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 0;">
               <!-- Header -->
               <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; text-align: center;">
-                <div style="font-size: 48px; margin-bottom: 10px;">⭐⭐⭐⭐⭐</div>
+                <div style="font-size: 48px; margin-bottom: 10px;">*****</div>
                 <h1 style="color: white; margin: 0; font-size: 28px;">Rate Your Experience</h1>
                 <p style="color: #fef3c7; margin: 10px 0 0 0; font-size: 15px;">Help ${recyclerName} improve their service</p>
               </div>
@@ -308,27 +308,27 @@ const updateOrderStatus = async (req, res) => {
                   <!-- Big CTA Button -->
                   <a href="${reviewUrl}" 
                      style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 18px 45px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 18px; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);">
-                    ⭐ Write Your Review
+                    Write Your Review
                   </a>
                   
                   <p style="color: #92400e; font-size: 13px; margin-top: 15px; font-weight: 600;">
-                    Takes less than 2 minutes ⏱️
+                    Takes less than 2 minutes
                   </p>
                 </div>
 
                 <!-- Why Review Matters -->
                 <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin-top: 30px;">
-                  <h3 style="color: #374151; font-size: 17px; margin: 0 0 15px 0;">💚 Why Your Review Matters</h3>
+                  <h3 style="color: #374151; font-size: 17px; margin: 0 0 15px 0;">Why Your Review Matters</h3>
                   <div style="margin-bottom: 12px;">
-                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">✓</span>
+                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">-</span>
                     <span style="color: #6b7280; font-size: 15px;">Helps other customers make informed decisions</span>
                   </div>
                   <div style="margin-bottom: 12px;">
-                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">✓</span>
+                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">-</span>
                     <span style="color: #6b7280; font-size: 15px;">Encourages recyclers to maintain high-quality service</span>
                   </div>
                   <div>
-                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">✓</span>
+                    <span style="color: #10b981; font-size: 20px; margin-right: 10px;">-</span>
                     <span style="color: #6b7280; font-size: 15px;">Improves the recycling experience for everyone</span>
                   </div>
                 </div>

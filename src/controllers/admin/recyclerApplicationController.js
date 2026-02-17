@@ -151,7 +151,7 @@ const approveApplication = async (req, res) => {
     try {
       await sendEmail({
         to: application.email,
-        subject: '🎉 Congratulations! Your Recycler Application Has Been Approved',
+        subject: 'Congratulations! Your Recycler Application Has Been Approved',
         htmlBody: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #10b981;">Congratulations ${application.name}!</h1>
