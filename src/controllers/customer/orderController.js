@@ -19,6 +19,7 @@ const createOrder = async (req, res) => {
       recyclerId,
       deviceCondition,
       storage,
+      network,
       amount,
       customerName,
       customerEmail,
@@ -83,6 +84,7 @@ const createOrder = async (req, res) => {
       recyclerName: recycler.companyName, // Store recycler name for search
       deviceCondition,
       storage,
+      network: network || 'Unlocked',
       amount,
       customerName,
       customerEmail,
@@ -108,6 +110,7 @@ const createOrder = async (req, res) => {
         deviceName: device.name,
         deviceCondition,
         storage,
+        network: network || 'Unlocked',
         amount,
         status: 'pending',
         paymentStatus: 'pending',
@@ -159,6 +162,10 @@ const createOrder = async (req, res) => {
                   ${storage ? `<tr>
                     <td style="padding: 8px 0; color: #374151;">Storage:</td>
                     <td style="padding: 8px 0; color: #374151; text-align: right;">${storage}</td>
+                  </tr>` : ''}
+                  ${network && network !== 'Unlocked' ? `<tr>
+                    <td style="padding: 8px 0; color: #374151;">Network:</td>
+                    <td style="padding: 8px 0; color: #374151; text-align: right;">${network}</td>
                   </tr>` : ''}
                   <tr style="border-top: 2px solid #1e3a8a;">
                     <td style="padding: 12px 0 0 0; color: #1e3a8a; font-weight: bold; font-size: 18px;">Amount:</td>

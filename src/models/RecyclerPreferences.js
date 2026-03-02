@@ -32,6 +32,12 @@ const recyclerPreferencesSchema = new mongoose.Schema({
       'Faulty': true,
     },
   },
+  // Enabled network options
+  enabledNetworks: {
+    type: Map,
+    of: Boolean,
+    default: {},
+  },
   // Selected devices (for quick reference)
   selectedDevices: [{
     type: mongoose.Schema.Types.ObjectId,

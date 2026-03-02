@@ -15,10 +15,15 @@ const recyclerDevicePricingSchema = new mongoose.Schema({
     index: true,
   },
   // Storage-based pricing (dynamic format to support any condition)
+  // Each entry represents a unique storage + network combination with condition prices
   storagePricing: [{
     storage: {
       type: String,
       required: true,
+    },
+    network: {
+      type: String,
+      default: 'Unlocked', // Default to Unlocked for backward compatibility
     },
     conditions: {
       type: Map,

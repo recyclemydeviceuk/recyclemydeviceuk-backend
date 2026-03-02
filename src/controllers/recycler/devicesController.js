@@ -34,7 +34,7 @@ const getAllDevices = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('name brand category image storageOptions conditionOptions specifications status'),
+        .select('name brand category image storageOptions conditionOptions networkOptions specifications status'),
       Device.countDocuments(filter),
     ]);
 

@@ -67,6 +67,10 @@ const orderSchema = new mongoose.Schema({
   storage: {
     type: String,
   },
+  network: {
+    type: String,
+    default: 'Unlocked',
+  },
   deviceNotes: {
     type: String,
   },

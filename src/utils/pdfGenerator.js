@@ -103,6 +103,7 @@ const generateInvoicePDF = async (orderData) => {
         .text(orderData.deviceName || 'Device', 60, rowTop, { width: 200 })
         .text(orderData.deviceCondition || '-', 270, rowTop, { width: 100 })
         .text(orderData.storage || '-', 380, rowTop, { width: 80 })
+        .text(orderData.network && orderData.network !== 'Unlocked' ? orderData.network : 'Unlocked', 60, rowTop + 20, { width: 200 })
         .fillColor('#10b981')
         .font('Helvetica-Bold')
         .text(`£${parseFloat(orderData.amount || 0).toFixed(2)}`, 470, rowTop, { width: 65, align: 'right' });

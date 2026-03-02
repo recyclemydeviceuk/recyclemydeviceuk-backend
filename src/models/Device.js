@@ -39,6 +39,11 @@ const deviceSchema = new mongoose.Schema({
     type: String,
     trim: true,
   }],
+  // Admin-managed network options (e.g., ['Unlocked', 'Locked', 'EE', 'Vodafone'])
+  networkOptions: [{
+    type: String,
+    trim: true,
+  }],
   specifications: {
     processor: String,
     ram: String,

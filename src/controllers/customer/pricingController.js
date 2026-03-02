@@ -10,7 +10,7 @@ const Recycler = require('../../models/Recycler');
 const getDevicePrices = async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const { storage, condition } = req.query;
+    const { storage, condition, network } = req.query;
 
     // Verify device exists
     const device = await Device.findById(deviceId).populate('brand', 'name');
@@ -54,12 +54,20 @@ const getDevicePrices = async (req, res) => {
 
     // If storage and condition are provided, filter and format the results
     if (storage && condition) {
+      const selectedNetwork = network || 'Unlocked'; // Default to Unlocked if not specified
+      
       const offers = approvedPricing
         .map((pricing) => {
-          // Find the storage pricing
-          const storagePrice = pricing.storagePricing.find(
-            (sp) => sp.storage === storage
+          // Find the storage + network pricing combination
+          // First try exact network match, then fall back to Unlocked pricing
+          let storagePrice = pricing.storagePricing.find(
+            (sp) => sp.storage === storage && sp.network === selectedNetwork
           );
+          if (!storagePrice) {
+            storagePrice = pricing.storagePricing.find(
+              (sp) => sp.storage === storage && (!sp.network || sp.network === 'Unlocked')
+            );
+          }
 
           if (!storagePrice) return null;
 
@@ -82,6 +90,7 @@ const getDevicePrices = async (req, res) => {
             price,
             storage,
             condition,
+            network: selectedNetwork,
           };
         })
         .filter((offer) => offer !== null)
@@ -114,6 +123,7 @@ const getDevicePrices = async (req, res) => {
           category: device.category,
           storageOptions: device.storageOptions,
           conditionOptions: device.conditionOptions,
+          networkOptions: device.networkOptions || [],
         },
         pricing: approvedPricing.map((p) => ({
           recycler: {

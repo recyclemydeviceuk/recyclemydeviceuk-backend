@@ -14,7 +14,8 @@ const batchSaveConfiguration = async (req, res) => {
       selectedDevices, 
       devicePricing, 
       enabledStorage, 
-      enabledConditions 
+      enabledConditions,
+      enabledNetworks
     } = req.body;
 
     console.log('Batch save request:', {
@@ -22,7 +23,8 @@ const batchSaveConfiguration = async (req, res) => {
       selectedDevicesCount: selectedDevices?.length,
       devicePricingCount: devicePricing?.length,
       enabledStorage,
-      enabledConditions
+      enabledConditions,
+      enabledNetworks
     });
 
     // Validate request
@@ -46,6 +48,7 @@ const batchSaveConfiguration = async (req, res) => {
     if (preferences) {
       if (enabledStorage) preferences.enabledStorage = enabledStorage;
       if (enabledConditions) preferences.enabledConditions = enabledConditions;
+      if (enabledNetworks) preferences.enabledNetworks = enabledNetworks;
       // Only update selectedDevices if provided and not empty (for bulk saves)
       // For individual device saves, we skip this to preserve existing selections
       if (selectedDevices && selectedDevices.length > 0) {
@@ -55,19 +58,9 @@ const batchSaveConfiguration = async (req, res) => {
     } else {
       preferences = await RecyclerPreferences.create({
         recyclerId,
-        enabledStorage: enabledStorage || {
-          '128GB': true,
-          '256GB': true,
-          '512GB': true,
-          '1TB': true,
-        },
-        enabledConditions: enabledConditions || {
-          'Like New': true,
-          'Good': true,
-          'Fair': true,
-          'Poor': true,
-          'Faulty': true,
-        },
+        enabledStorage: enabledStorage || {},
+        enabledConditions: enabledConditions || {},
+        enabledNetworks: enabledNetworks || {},
         selectedDevices: selectedDevices || [],
       });
     }
@@ -98,25 +91,29 @@ const batchSaveConfiguration = async (req, res) => {
           continue;
         }
 
-        // Transform pricing data to storage-based format
+        // Transform pricing data to storage+network-based format
+        // Key is "storage||network" to support storage+network combinations
         const storagePricingMap = {};
         
         pricingData.forEach(item => {
-          const { condition, storage, price } = item;
+          const { condition, storage, network, price } = item;
+          const networkKey = network || 'Unlocked';
+          const combinedKey = `${storage}||${networkKey}`;
           
-          if (!storagePricingMap[storage]) {
-            storagePricingMap[storage] = {};
+          if (!storagePricingMap[combinedKey]) {
+            storagePricingMap[combinedKey] = { storage, network: networkKey, conditions: {} };
           }
           
           // Normalize condition key to lowercase for consistency
           const conditionKey = condition.toLowerCase();
-          storagePricingMap[storage][conditionKey] = price || 0;
+          storagePricingMap[combinedKey].conditions[conditionKey] = price || 0;
         });
 
-        // Convert to array format
-        const storagePricing = Object.keys(storagePricingMap).map(storage => ({
-          storage,
-          conditions: storagePricingMap[storage],
+        // Convert to array format preserving network field
+        const storagePricing = Object.values(storagePricingMap).map(entry => ({
+          storage: entry.storage,
+          network: entry.network,
+          conditions: entry.conditions,
         }));
 
         // Create or update pricing
@@ -181,105 +178,86 @@ const getConfiguration = async (req, res) => {
 
     // Get preferences
     let preferences = await RecyclerPreferences.findOne({ recyclerId })
-      .populate('selectedDevices', 'name brand image storageOptions conditionOptions');
+      .populate('selectedDevices', 'name brand image storageOptions conditionOptions networkOptions');
 
     if (!preferences) {
       preferences = await RecyclerPreferences.create({
         recyclerId,
-        enabledStorage: {
-          '128GB': true,
-          '256GB': true,
-          '512GB': true,
-          '1TB': true,
-        },
-        enabledConditions: {
-          'Like New': true,
-          'Good': true,
-          'Fair': true,
-          'Poor': true,
-          'Faulty': true,
-        },
+        enabledStorage: {},
+        enabledConditions: {},
+        enabledNetworks: {},
         selectedDevices: [],
       });
     }
 
     // Get all pricing for this recycler
     const allPricing = await RecyclerDevicePricing.find({ recyclerId })
-      .populate('deviceId', 'name brand image storageOptions conditionOptions');
+      .populate('deviceId', 'name brand image storageOptions conditionOptions networkOptions');
 
     // Transform pricing to frontend format with sync to current device options
     const pricingByDevice = {};
     
     for (const pricing of allPricing) {
-      const deviceId = pricing.deviceId._id.toString();
-      const device = pricing.deviceId;
+      // Handle cases where device might have been deleted or not populated
+      if (!pricing.deviceId) {
+        console.warn(`Skipping pricing for recycler ${recyclerId} - device not found (deviceId: ${pricing.deviceId})`);
+        continue;
+      }
+      
+      // deviceId might be populated object or just an ID string
+      const deviceId = pricing.deviceId._id 
+        ? pricing.deviceId._id.toString() 
+        : pricing.deviceId.toString();
+      const device = pricing.deviceId._id ? pricing.deviceId : null;
+      
+      // Skip if device was deleted or we can't get device info
+      if (!device) {
+        console.warn(`Skipping pricing - device ${deviceId} not found`);
+        continue;
+      }
       
       // Get current device options
       const currentStorageOptions = device.storageOptions || [];
       const currentConditionOptions = device.conditionOptions || [];
+      const currentNetworkOptions = device.networkOptions && device.networkOptions.length > 0
+        ? device.networkOptions
+        : ['Unlocked'];
       
-      // Build a map of existing pricing for quick lookup
+      // Build a map of existing pricing for quick lookup (storage+network+condition)
       const existingPricingMap = {};
       pricing.storagePricing.forEach(sp => {
         const conditions = sp.conditions instanceof Map ? 
           Object.fromEntries(sp.conditions) : sp.conditions;
+        const networkKey = (sp.network || 'Unlocked').toLowerCase();
         
         Object.keys(conditions).forEach(conditionKey => {
-          const key = `${sp.storage.toLowerCase()}-${conditionKey.toLowerCase()}`;
+          const key = `${sp.storage.toLowerCase()}-${networkKey}-${conditionKey.toLowerCase()}`;
           existingPricingMap[key] = conditions[conditionKey];
         });
       });
       
-      // Build synced pricing array
+      // Build synced pricing array (3D: storage × network × condition)
       const syncedPricingArray = [];
       
-      // For each current storage option
       currentStorageOptions.forEach(storage => {
-        // For each current condition option
-        currentConditionOptions.forEach(condition => {
-          const conditionKey = condition.toLowerCase();
-          const lookupKey = `${storage.toLowerCase()}-${conditionKey}`;
-          
-          // Check if we have existing pricing for this combination
-          const existingPrice = existingPricingMap[lookupKey];
-          
-          syncedPricingArray.push({
-            condition: condition,
-            storage: storage,
-            price: existingPrice !== undefined ? existingPrice : 0,
+        currentNetworkOptions.forEach(network => {
+          currentConditionOptions.forEach(condition => {
+            const conditionKey = condition.toLowerCase();
+            const networkKeyLower = network.toLowerCase();
+            const lookupKey = `${storage.toLowerCase()}-${networkKeyLower}-${conditionKey}`;
+            const existingPrice = existingPricingMap[lookupKey];
+            
+            syncedPricingArray.push({
+              condition,
+              storage,
+              network,
+              price: existingPrice !== undefined ? existingPrice : 0,
+            });
           });
         });
       });
       
       pricingByDevice[deviceId] = syncedPricingArray;
-      
-      // If device options changed, update the stored pricing in background
-      const hasChanges = syncedPricingArray.length !== (pricing.storagePricing || []).reduce(
-        (acc, sp) => acc + (sp.conditions ? Object.keys(sp.conditions).length : 0), 0
-      );
-      
-      if (hasChanges) {
-        // Transform synced pricing back to storage format and save
-        const newStoragePricingMap = {};
-        syncedPricingArray.forEach(item => {
-          if (!newStoragePricingMap[item.storage]) {
-            newStoragePricingMap[item.storage] = {};
-          }
-          newStoragePricingMap[item.storage][item.condition.toLowerCase()] = item.price;
-        });
-        
-        const newStoragePricing = Object.keys(newStoragePricingMap).map(storage => ({
-          storage,
-          conditions: newStoragePricingMap[storage],
-        }));
-        
-        // Update in background (don't await to keep response fast)
-        RecyclerDevicePricing.findOneAndUpdate(
-          { recyclerId, deviceId },
-          { storagePricing: newStoragePricing },
-          { new: true }
-        ).exec().catch(err => console.error('Background pricing sync error:', err));
-      }
     }
 
     res.status(HTTP_STATUS.OK).json({
@@ -290,6 +268,8 @@ const getConfiguration = async (req, res) => {
             Object.fromEntries(preferences.enabledStorage) : preferences.enabledStorage,
           enabledConditions: preferences.enabledConditions instanceof Map ? 
             Object.fromEntries(preferences.enabledConditions) : preferences.enabledConditions,
+          enabledNetworks: preferences.enabledNetworks instanceof Map ? 
+            Object.fromEntries(preferences.enabledNetworks) : (preferences.enabledNetworks || {}),
           selectedDevices: preferences.selectedDevices,
         },
         pricingByDevice,

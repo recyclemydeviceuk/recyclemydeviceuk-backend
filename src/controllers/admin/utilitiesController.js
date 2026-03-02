@@ -895,6 +895,55 @@ const deleteDeviceCategory = async (req, res) => {
   }
 };
 
+// ===== NETWORK OPTIONS CRUD =====
+
+const getNetworkOptions = async (req, res) => {
+  try {
+    const NetworkOption = require('../../models/NetworkOption');
+    const options = await NetworkOption.find().sort({ category: 1, order: 1, name: 1 });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: options });
+  } catch (error) {
+    console.error('Get Network Options Error:', error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to fetch network options',
+      error: error.message,
+    });
+  }
+};
+
+const createNetworkOption = async (req, res) => {
+  try {
+    const NetworkOption = require('../../models/NetworkOption');
+    const option = await NetworkOption.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data: option });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to create network option', error: error.message });
+  }
+};
+
+const updateNetworkOption = async (req, res) => {
+  try {
+    const NetworkOption = require('../../models/NetworkOption');
+    const option = await NetworkOption.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!option) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Network option not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: option });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Failed to update network option', error: error.message });
+  }
+};
+
+const deleteNetworkOption = async (req, res) => {
+  try {
+    const NetworkOption = require('../../models/NetworkOption');
+    const option = await NetworkOption.findByIdAndDelete(req.params.id);
+    if (!option) return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Network option not found' });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: 'Network option deleted' });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to delete network option', error: error.message });
+  }
+};
+
 // ===== CONDITIONS CRUD =====
 
 const getAllConditions = async (req, res) => {
@@ -1040,6 +1089,11 @@ module.exports = {
   createStorageOption,
   updateStorageOption,
   deleteStorageOption,
+  // Network Options
+  getNetworkOptions,
+  createNetworkOption,
+  updateNetworkOption,
+  deleteNetworkOption,
   // Device Categories
   getAllDeviceCategories,
   createDeviceCategory,

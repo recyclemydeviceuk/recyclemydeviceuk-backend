@@ -11,6 +11,10 @@ const {
   createStorageOption,
   updateStorageOption,
   deleteStorageOption,
+  getNetworkOptions,
+  createNetworkOption,
+  updateNetworkOption,
+  deleteNetworkOption,
   getAllDeviceCategories,
   createDeviceCategory,
   updateDeviceCategory,
@@ -61,6 +65,12 @@ router.get('/storage-options', getStorageOptions);
 router.post('/storage-options', createStorageOption);
 router.put('/storage-options/:id', updateStorageOption);
 router.delete('/storage-options/:id', deleteStorageOption);
+
+// Network options CRUD routes
+router.get('/network-options', getNetworkOptions);
+router.post('/network-options', createNetworkOption);
+router.put('/network-options/:id', updateNetworkOption);
+router.delete('/network-options/:id', deleteNetworkOption);
 
 // Device categories CRUD routes
 router.get('/device-categories', getAllDeviceCategories);

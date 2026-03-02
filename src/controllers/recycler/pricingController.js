@@ -106,7 +106,7 @@ const createOrUpdatePricing = async (req, res) => {
       });
     }
 
-    // Normalize condition keys to lowercase for consistency
+    // Normalize condition keys to lowercase for consistency, preserve network field
     const normalizedStoragePricing = storagePricing.map(sp => {
       const normalizedConditions = {};
       const conditions = sp.conditions instanceof Map ? Object.fromEntries(sp.conditions) : sp.conditions;
@@ -117,6 +117,7 @@ const createOrUpdatePricing = async (req, res) => {
       
       return {
         storage: sp.storage,
+        network: sp.network || 'Unlocked',
         conditions: normalizedConditions,
       };
     });
