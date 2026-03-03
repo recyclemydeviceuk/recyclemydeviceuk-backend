@@ -71,6 +71,11 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: 'Unlocked',
   },
+  postageOption: {
+    type: String,
+    enum: ['print_label', 'send_pack'],
+    default: 'print_label',
+  },
   deviceNotes: {
     type: String,
   },

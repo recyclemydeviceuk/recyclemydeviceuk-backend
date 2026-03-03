@@ -104,6 +104,9 @@ const generateInvoicePDF = async (orderData) => {
         .text(orderData.deviceCondition || '-', 270, rowTop, { width: 100 })
         .text(orderData.storage || '-', 380, rowTop, { width: 80 })
         .text(orderData.network && orderData.network !== 'Unlocked' ? orderData.network : 'Unlocked', 60, rowTop + 20, { width: 200 })
+        .fillColor('#374151')
+        .font('Helvetica')
+        .text(`Postage: ${orderData.postageOption === 'send_pack' ? 'Send a Pack From Us' : 'Print Our Label'}`, 60, rowTop + 35, { width: 300 })
         .fillColor('#10b981')
         .font('Helvetica-Bold')
         .text(`£${parseFloat(orderData.amount || 0).toFixed(2)}`, 470, rowTop, { width: 65, align: 'right' });

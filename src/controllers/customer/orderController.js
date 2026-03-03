@@ -20,6 +20,7 @@ const createOrder = async (req, res) => {
       deviceCondition,
       storage,
       network,
+      postageOption,
       amount,
       customerName,
       customerEmail,
@@ -85,6 +86,7 @@ const createOrder = async (req, res) => {
       deviceCondition,
       storage,
       network: network || 'Unlocked',
+      postageOption: postageOption || 'print_label',
       amount,
       customerName,
       customerEmail,
@@ -111,6 +113,7 @@ const createOrder = async (req, res) => {
         deviceCondition,
         storage,
         network: network || 'Unlocked',
+        postageOption: postageOption || 'print_label',
         amount,
         status: 'pending',
         paymentStatus: 'pending',
@@ -167,6 +170,10 @@ const createOrder = async (req, res) => {
                     <td style="padding: 8px 0; color: #374151;">Network:</td>
                     <td style="padding: 8px 0; color: #374151; text-align: right;">${network}</td>
                   </tr>` : ''}
+                  <tr>
+                    <td style="padding: 8px 0; color: #374151;">Postage:</td>
+                    <td style="padding: 8px 0; color: #374151; text-align: right;">${postageOption === 'send_pack' ? 'Send a Pack From Us' : 'Print Our Label'}</td>
+                  </tr>
                   <tr style="border-top: 2px solid #1e3a8a;">
                     <td style="padding: 12px 0 0 0; color: #1e3a8a; font-weight: bold; font-size: 18px;">Amount:</td>
                     <td style="padding: 12px 0 0 0; color: #10b981; font-weight: bold; font-size: 20px; text-align: right;">£${amount}</td>
